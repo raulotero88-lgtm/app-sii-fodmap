@@ -101,6 +101,8 @@
     .resumen-grupo th,.resumen-grupo td{border:1px solid var(--linea);padding:5px 6px;text-align:center}
     .resumen-grupo th{background:#f5f5f5;font-weight:600}
   </style>
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
 </head>
 <body>
   <div id="app"></div>
@@ -1509,5 +1511,43 @@
 
   document.addEventListener("DOMContentLoaded", init);
   </script>
+
+<div id="update-banner" style="display:none; position:fixed; bottom:0; left:0; right:0; background:#2ecc71; color:#fff; padding:12px 16px; align-items:center; justify-content:space-between; z-index:9999; font-family:sans-serif;">
+  <div>
+    <strong>🔄 Nueva versión disponible</strong><br>
+    <small>Tus datos NO se perderán al actualizar.</small>
+  </div>
+  <button id="update-btn" style="background:#fff; color:#2ecc71; border:none; padding:8px 16px; border-radius:6px; font-weight:bold; cursor:pointer;">Actualizar ahora</button>
+</div>
+
+<script>
+  if ('serviceWorker' in navigator) {
+    let pendingSW = null;
+
+    navigator.serviceWorker.register('./sw.js').then(reg => {
+      reg.addEventListener('updatefound', () => {
+        const newSW = reg.installing;
+        newSW.addEventListener('statechange', () => {
+          if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
+            pendingSW = newSW;
+            document.getElementById('update-banner').style.display = 'flex';
+          }
+        });
+      });
+    });
+
+    navigator.serviceWorker.addEventListener('message', event => {
+      if (event.data && event.data.type === 'SW_ACTIVATED') {
+        window.location.reload();
+      }
+    });
+
+    document.getElementById('update-btn').addEventListener('click', () => {
+      if (pendingSW) {
+        pendingSW.postMessage({ type: 'SKIP_WAITING' });
+      }
+    });
+  }
+</script>
 </body>
 </html>
