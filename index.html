@@ -1534,7 +1534,7 @@
           }
         });
       });
-    });
+    }).catch(err => console.warn('[SW] Registro fallido:', err));
 
     navigator.serviceWorker.addEventListener('message', event => {
       if (event.data && event.data.type === 'SW_ACTIVATED') {
