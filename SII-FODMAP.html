@@ -61,6 +61,45 @@
     footer{margin-top:28px;font-size:.72rem;color:#999;text-align:center}
     #test-output{font-family:monospace;font-size:13px;padding:16px;max-width:760px;margin:0 auto}
     @media(max-width:360px){.grid{grid-template-columns:1fr 1fr}}
+
+    /* ---- Fase 2 (reintroducción) ---- */
+    .tabs{display:flex;gap:6px;margin-bottom:14px;border-bottom:2px solid var(--linea)}
+    .tab{flex:1;background:none;border:none;padding:12px 8px;font-size:1rem;font-family:inherit;
+      color:var(--gris);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px}
+    .tab.activo{color:var(--verde);font-weight:700;border-bottom-color:var(--verde)}
+    .intro{font-size:.9rem;color:#444;margin:4px 0 12px}
+    .reto-card{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:1px solid var(--linea);
+      border-radius:12px;padding:14px;background:#fff;cursor:pointer;font-family:inherit;font-size:1rem;margin-bottom:10px}
+    .reto-card .reto-info{display:flex;flex-direction:column;gap:2px}
+    .reto-card .reto-grupo{font-weight:600}
+    .reto-card .reto-sub{font-size:.78rem;color:var(--gris)}
+    .estado{margin-left:auto;font-size:.74rem;padding:3px 9px;border-radius:999px;background:#eee;color:var(--gris);white-space:nowrap}
+    .estado.encurso{background:var(--amar-bg);color:#8a6d00}
+    .estado.hecho{background:var(--verde-bg);color:var(--verde)}
+    .dosis{border:1px solid var(--linea);border-radius:12px;padding:12px;margin:12px 0;background:#fff}
+    .dosis.guardado{border-color:#c8e6c9;background:var(--verde-bg)}
+    .dosis h4{margin:0 0 2px}
+    .dosis .fecha{font-size:.8rem;color:var(--gris);margin:0 0 8px}
+    .slider-row{margin:12px 0}
+    .slider-row label{display:flex;justify-content:space-between;font-size:.9rem;margin-bottom:2px}
+    .slider-row input[type=range]{width:100%;accent-color:var(--verde)}
+    .sval{font-weight:700;color:var(--txt)}
+    .btn{display:inline-block;background:var(--verde);color:#fff;border:none;border-radius:10px;
+      padding:11px 16px;font-size:1rem;font-family:inherit;cursor:pointer}
+    .btn.sec{background:#fff;color:var(--verde);border:1px solid var(--verde)}
+    .btn.peligro{background:#fff;color:var(--rojo);border:1px solid var(--rojo)}
+    .btn-row{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+    textarea.notas{width:100%;border:1px solid var(--linea);border-radius:8px;padding:8px;
+      font-family:inherit;font-size:.95rem;resize:vertical;min-height:48px;margin-top:4px}
+    .lavado{background:var(--amar-bg);border:1px solid #ffe082;border-radius:8px;padding:10px;font-size:.85rem;margin:14px 0}
+    select.alim{width:100%;padding:11px;border:2px solid var(--linea);border-radius:10px;
+      font-size:1rem;font-family:inherit;background:#fff;margin:6px 0}
+    .aviso-guardado{font-size:.78rem;color:var(--verde);margin:6px 0 0;font-weight:600}
+    .resumen-grupo{border:1px solid var(--linea);border-radius:10px;padding:12px;margin-bottom:10px}
+    .resumen-grupo h3{margin:0 0 2px;font-size:1rem}
+    .resumen-grupo table{width:100%;border-collapse:collapse;font-size:.85rem;margin-top:8px}
+    .resumen-grupo th,.resumen-grupo td{border:1px solid var(--linea);padding:5px 6px;text-align:center}
+    .resumen-grupo th{background:#f5f5f5;font-weight:600}
   </style>
 </head>
 <body>
@@ -717,7 +756,7 @@
   }
 
   function render() {
-    var app = document.getElementById("app");
+    var app = document.getElementById("vista");
     if (!app) return;
     var resultados = buscar(estado.texto, DATOS, estado.categoria, estado.soloSeguros);
     var chips = CATEGORIAS.map(function (c) {
@@ -790,6 +829,434 @@
       q.focus();
       try { q.setSelectionRange(v.length, v.length); } catch (e) {}
     }
+  }
+
+  /* ============================================================
+     NAVEGACIÓN (pestañas Buscador / Reintroducción)
+     ============================================================ */
+  var vistaActual = "buscador"; // "buscador" | "fase2"
+
+  function renderApp() {
+    var app = document.getElementById("app");
+    if (!app) return;
+    app.innerHTML =
+      '<div class="tabs">' +
+      '<button class="tab' + (vistaActual === "buscador" ? " activo" : "") + '" data-tab="buscador">🔍 Buscador</button>' +
+      '<button class="tab' + (vistaActual === "fase2" ? " activo" : "") + '" data-tab="fase2">🔄 Reintroducción</button>' +
+      '</div><div id="vista"></div>';
+    Array.prototype.forEach.call(app.querySelectorAll("[data-tab]"), function (b) {
+      b.addEventListener("click", function () { navegar(b.getAttribute("data-tab")); });
+    });
+    if (vistaActual === "fase2") renderFase2();
+    else render();
+  }
+
+  function navegar(tab) {
+    vistaActual = tab;
+    renderApp();
+    window.scrollTo(0, 0);
+  }
+
+  /* ============================================================
+     FASE 2 · DATOS (retos de reintroducción)
+     agenda: "seguida" (días 1-2-3) | "alterna" (días 1-3-5, para fructanos y GOS)
+     ============================================================ */
+  var RETOS = [
+    { id:"fructosa", grupo:"Fructosa", agenda:"seguida", fodmap:"Fructosa",
+      nota:"La miel contiene solo fructosa, por eso es ideal para probar este grupo.",
+      alimentos:[
+        { nombre:"Miel", sugerido:true, dosis:["1 cucharadita","2 cucharaditas","1 cucharada"] },
+        { nombre:"Mango", sugerido:false, dosis:["1/4 de pieza","1/2 pieza","1 pieza pequeña"] }
+      ] },
+    { id:"lactosa", grupo:"Lactosa", agenda:"seguida", fodmap:"Lactosa",
+      nota:"La leche normal es el clásico alimento de prueba para la lactosa.",
+      alimentos:[
+        { nombre:"Leche normal", sugerido:true, dosis:["1/4 vaso (60 ml)","1/2 vaso (125 ml)","1 vaso (250 ml)"] },
+        { nombre:"Yogur natural normal", sugerido:false, dosis:["1/4 tarrina","1/2 tarrina","1 tarrina (125 g)"] }
+      ] },
+    { id:"sorbitol", grupo:"Sorbitol", agenda:"seguida", fodmap:"Sorbitol",
+      nota:"Las moras tienen sorbitol como FODMAP dominante (evita el aguacate: tiene otro poliol).",
+      alimentos:[
+        { nombre:"Moras / zarzamoras", sugerido:true, dosis:["5 moras","10 moras","20 moras"] },
+        { nombre:"Albaricoque", sugerido:false, dosis:["1/2 unidad","1 unidad","2 unidades"] }
+      ] },
+    { id:"manitol", grupo:"Manitol", agenda:"seguida", fodmap:"Manitol",
+      nota:"El champiñón es rico en manitol y bajo en otros FODMAPs.",
+      alimentos:[
+        { nombre:"Champiñón", sugerido:true, dosis:["1/2 champiñón","1 champiñón","3 champiñones"] },
+        { nombre:"Coliflor", sugerido:false, dosis:["1/4 taza","1/2 taza","1 taza"] }
+      ] },
+    { id:"fructanos-trigo", grupo:"Fructanos (trigo)", agenda:"alterna", fodmap:"Fructanos",
+      nota:"Prueba los fructanos del trigo por separado de los de la verdura: se toleran distinto.",
+      alimentos:[
+        { nombre:"Pan de trigo", sugerido:true, dosis:["1/2 rebanada","1 rebanada","2 rebanadas"] },
+        { nombre:"Pasta de trigo", sugerido:false, dosis:["1/4 taza cocida","1/2 taza cocida","1 taza cocida"] }
+      ] },
+    { id:"fructanos-verdura", grupo:"Fructanos (verdura)", agenda:"alterna", fodmap:"Fructanos",
+      nota:"La cebolla es uno de los fructanos más potentes; pruébala aparte del trigo.",
+      alimentos:[
+        { nombre:"Cebolla", sugerido:true, dosis:["1 cucharadita cruda","1 cucharada cruda","1/4 de cebolla"] },
+        { nombre:"Ajo", sugerido:false, dosis:["1/4 de diente","1/2 diente","1 diente"] }
+      ] },
+    { id:"gos", grupo:"GOS (galactanos)", agenda:"alterna", fodmap:"GOS",
+      nota:"Los garbanzos aportan GOS. De bote y enjuagados son el alimento de prueba habitual.",
+      alimentos:[
+        { nombre:"Garbanzos de bote", sugerido:true, dosis:["1/4 taza","1/2 taza","3/4 taza"] },
+        { nombre:"Lentejas de bote", sugerido:false, dosis:["1/4 taza","1/2 taza","3/4 taza"] },
+        { nombre:"Almendras", sugerido:false, dosis:["10 unidades","15 unidades","20 unidades"] }
+      ] }
+  ];
+
+  /* ============================================================
+     FASE 2 · LÓGICA PURA (agenda, validación, persistencia)
+     ============================================================ */
+  function validarReto(r) {
+    var e = [];
+    if (!r || typeof r !== "object") return ["no es objeto"];
+    if (!r.id) e.push("id ausente");
+    if (!r.grupo) e.push("grupo ausente");
+    if (["seguida", "alterna"].indexOf(r.agenda) === -1) e.push("agenda inválida");
+    if (FODMAPS_VALIDOS.indexOf(r.fodmap) === -1) e.push("fodmap inválido: " + r.fodmap);
+    if (!Array.isArray(r.alimentos) || !r.alimentos.length) { e.push("sin alimentos"); return e; }
+    var sug = r.alimentos.filter(function (a) { return a.sugerido; });
+    if (sug.length !== 1) e.push("debe haber exactamente 1 sugerido");
+    r.alimentos.forEach(function (a) {
+      if (!a.nombre) e.push("alimento sin nombre");
+      if (!Array.isArray(a.dosis) || a.dosis.length !== 3) e.push((a.nombre || "?") + ": dosis debe tener 3");
+    });
+    return e;
+  }
+
+  function pad2(n) { return (n < 10 ? "0" : "") + n; }
+  function aISO(d) { return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate()); }
+
+  function calcularFechas(inicioISO, agenda) {
+    var partes = String(inicioISO).split("-");
+    if (partes.length !== 3) return [];
+    var base = new Date(Number(partes[0]), Number(partes[1]) - 1, Number(partes[2]));
+    if (isNaN(base.getTime())) return [];
+    var paso = agenda === "alterna" ? 2 : 1;
+    var fechas = [];
+    for (var i = 0; i < 3; i++) {
+      var d = new Date(base.getTime());
+      d.setDate(base.getDate() + i * paso);
+      fechas.push(aISO(d));
+    }
+    return fechas;
+  }
+
+  var STORAGE_KEY = "sii_fodmap_fase2_v1";
+  var almacen = {
+    _mem: null,
+    disponible: function () {
+      try {
+        localStorage.setItem("__t", "1");
+        localStorage.removeItem("__t");
+        return true;
+      } catch (e) { return false; }
+    },
+    cargar: function () {
+      if (this._mem) return this._mem;
+      var base = { version: 1, retos: {} };
+      try {
+        var raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          var p = JSON.parse(raw);
+          if (p && p.retos && typeof p.retos === "object") base = p;
+        }
+      } catch (e) {}
+      this._mem = base;
+      return base;
+    },
+    guardar: function (data) {
+      this._mem = data;
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); return true; }
+      catch (e) { return false; }
+    },
+    exportar: function () { return JSON.stringify(this.cargar(), null, 2); },
+    importar: function (json) {
+      var p;
+      try { p = JSON.parse(json); } catch (e) { return false; }
+      if (!p || typeof p !== "object" || !p.retos || typeof p.retos !== "object") return false;
+      this.guardar({ version: p.version || 1, retos: p.retos });
+      return true;
+    }
+  };
+
+  function progresoDe(id) {
+    var data = almacen.cargar();
+    return data.retos[id] || null;
+  }
+
+  function iniciarReto(id, alimentoNombre, fechaInicio) {
+    var reto = RETOS.filter(function (r) { return r.id === id; })[0];
+    if (!reto) return;
+    var alimento = reto.alimentos.filter(function (a) { return a.nombre === alimentoNombre; })[0] || reto.alimentos[0];
+    var fechas = calcularFechas(fechaInicio, reto.agenda);
+    var data = almacen.cargar();
+    data.retos[id] = {
+      alimentoElegido: alimento.nombre,
+      fechaInicio: fechaInicio,
+      dias: alimento.dosis.map(function (d, i) {
+        return { etiqueta: "Dosis " + (i + 1), dosis: d, fecha: fechas[i] || "",
+          dolor: 0, hinchazon: 0, gases: 0, notas: "", guardado: false };
+      })
+    };
+    almacen.guardar(data);
+  }
+
+  function guardarDia(id, idx, valores) {
+    var data = almacen.cargar();
+    var r = data.retos[id];
+    if (!r || !r.dias[idx]) return;
+    r.dias[idx].dolor = valores.dolor;
+    r.dias[idx].hinchazon = valores.hinchazon;
+    r.dias[idx].gases = valores.gases;
+    r.dias[idx].notas = valores.notas;
+    r.dias[idx].guardado = true;
+    almacen.guardar(data);
+  }
+
+  function reiniciarReto(id) {
+    var data = almacen.cargar();
+    delete data.retos[id];
+    almacen.guardar(data);
+  }
+
+  function estadoReto(id) {
+    var r = progresoDe(id);
+    if (!r) return "sin-iniciar";
+    return r.dias.every(function (d) { return d.guardado; }) ? "hecho" : "encurso";
+  }
+
+  /* ============================================================
+     FASE 2 · RENDER / UI
+     ============================================================ */
+  var estadoFase2 = { retoAbierto: null, resumen: false };
+
+  function descargar(nombre, contenido) {
+    try {
+      var blob = new Blob([contenido], { type: "application/json" });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement("a");
+      a.href = url; a.download = nombre;
+      document.body.appendChild(a); a.click();
+      document.body.removeChild(a); URL.revokeObjectURL(url);
+    } catch (e) { alert("No se pudo exportar: " + e.message); }
+  }
+
+  function pedirImportar() {
+    var inp = document.createElement("input");
+    inp.type = "file";
+    inp.accept = "application/json,.json";
+    inp.addEventListener("change", function () {
+      var f = inp.files && inp.files[0];
+      if (!f) return;
+      var fr = new FileReader();
+      fr.onload = function () {
+        if (almacen.importar(fr.result)) { alert("Copia importada correctamente."); renderFase2(); }
+        else alert("El archivo no es una copia válida. No se ha cambiado nada.");
+      };
+      fr.readAsText(f);
+    });
+    inp.click();
+  }
+
+  function wireAcciones(v) {
+    Array.prototype.forEach.call(v.querySelectorAll("[data-accion]"), function (b) {
+      b.addEventListener("click", function () {
+        var a = b.getAttribute("data-accion");
+        if (a === "exportar") descargar("diario-fodmap.json", almacen.exportar());
+        else if (a === "importar") pedirImportar();
+        else if (a === "resumen") { estadoFase2.resumen = true; renderFase2(); window.scrollTo(0, 0); }
+      });
+    });
+    Array.prototype.forEach.call(v.querySelectorAll("[data-volver-f2]"), function (b) {
+      b.addEventListener("click", function () {
+        estadoFase2.resumen = false; estadoFase2.retoAbierto = null;
+        renderFase2(); window.scrollTo(0, 0);
+      });
+    });
+  }
+
+  function renderFase2() {
+    var v = document.getElementById("vista");
+    if (!v) return;
+    if (estadoFase2.resumen) { renderResumen(); return; }
+    if (estadoFase2.retoAbierto) { renderReto(estadoFase2.retoAbierto); return; }
+
+    var cards = RETOS.map(function (r) {
+      var est = estadoReto(r.id);
+      var etiqueta = est === "hecho" ? "Completado" : est === "encurso" ? "En curso" : "Sin empezar";
+      var cls = est === "hecho" ? "hecho" : est === "encurso" ? "encurso" : "";
+      var alim = (progresoDe(r.id) || {}).alimentoElegido ||
+        r.alimentos.filter(function (a) { return a.sugerido; })[0].nombre;
+      return '<button class="reto-card" data-reto="' + escapeHTML(r.id) + '">' +
+        '<div class="reto-info"><span class="reto-grupo">' + escapeHTML(r.grupo) + '</span>' +
+        '<span class="reto-sub">Prueba: ' + escapeHTML(alim) + ' · ' +
+        (r.agenda === "alterna" ? "días alternos" : "3 días seguidos") + '</span></div>' +
+        '<span class="estado ' + cls + '">' + etiqueta + '</span></button>';
+    }).join("");
+
+    v.innerHTML =
+      '<header><h1>🔄 Reintroducción</h1>' +
+      '<p class="aviso">Fase 2: prueba un grupo FODMAP cada vez en 3 dosis crecientes y registra tus síntomas. ' +
+      'La app <strong>solo registra</strong>; la interpretación la haces con tu dietista.</p></header>' +
+      '<p class="intro">Elige un grupo para empezar. Entre un grupo y el siguiente, deja 2-3 días de descanso ' +
+      '(dieta baja en FODMAP) hasta que se calmen los síntomas.</p>' +
+      cards +
+      '<div class="btn-row">' +
+        '<button class="btn sec" data-accion="resumen">📋 Ver resumen</button>' +
+        '<button class="btn sec" data-accion="exportar">⬇️ Exportar copia</button>' +
+        '<button class="btn sec" data-accion="importar">⬆️ Importar copia</button>' +
+      '</div>' +
+      (almacen.disponible() ? '' :
+        '<p class="aviso">⚠️ Tu navegador no permite guardar automáticamente. Usa "Exportar copia" para no perder los datos.</p>') +
+      '<footer>Protocolo orientativo basado en Monash FODMAP. No sustituye a tu dietista.</footer>';
+
+    Array.prototype.forEach.call(v.querySelectorAll("[data-reto]"), function (b) {
+      b.addEventListener("click", function () {
+        estadoFase2.retoAbierto = b.getAttribute("data-reto");
+        renderFase2(); window.scrollTo(0, 0);
+      });
+    });
+    wireAcciones(v);
+  }
+
+  function bloqueDosisHTML(id, i, d) {
+    function slider(clave, label, val) {
+      return '<div class="slider-row"><label>' + label +
+        ' <span class="sval" data-sval="' + clave + '-' + i + '">' + val + '</span></label>' +
+        '<input type="range" min="0" max="10" value="' + val +
+        '" data-slider="' + clave + '" data-idx="' + i + '"></div>';
+    }
+    return '<div class="dosis' + (d.guardado ? " guardado" : "") + '">' +
+      '<h4>' + escapeHTML(d.etiqueta) + ': ' + escapeHTML(d.dosis) + '</h4>' +
+      '<p class="fecha">📅 ' + escapeHTML(d.fecha || "sin fecha") + (d.guardado ? ' · ✅ guardado' : '') + '</p>' +
+      slider("dolor", "Dolor", d.dolor) +
+      slider("hinchazon", "Hinchazón", d.hinchazon) +
+      slider("gases", "Gases", d.gases) +
+      '<textarea class="notas" data-notas="' + i + '" placeholder="Notas (opcional): cuándo, cómo de fuerte…">' +
+      escapeHTML(d.notas || "") + '</textarea>' +
+      '<div class="btn-row"><button class="btn" data-guardar="' + i + '">Guardar ' + escapeHTML(d.etiqueta) + '</button></div>' +
+      '</div>';
+  }
+
+  function renderReto(id) {
+    var v = document.getElementById("vista");
+    if (!v) return;
+    var reto = RETOS.filter(function (r) { return r.id === id; })[0];
+    if (!reto) { estadoFase2.retoAbierto = null; renderFase2(); return; }
+    var prog = progresoDe(id);
+    var cuerpo;
+
+    if (!prog) {
+      var opciones = reto.alimentos.map(function (a) {
+        return '<option value="' + escapeHTML(a.nombre) + '"' + (a.sugerido ? " selected" : "") + '>' +
+          escapeHTML(a.nombre) + (a.sugerido ? " (recomendado)" : "") +
+          ' — ' + escapeHTML(a.dosis.join(" / ")) + '</option>';
+      }).join("");
+      var hoy = aISO(new Date());
+      cuerpo =
+        '<p class="intro">' + escapeHTML(reto.nota) + '</p>' +
+        '<label>Alimento de prueba' +
+        '<select class="alim" id="alimSel">' + opciones + '</select></label>' +
+        '<label>Fecha de la primera dosis' +
+        '<input type="date" id="fechaSel" class="alim" value="' + hoy + '"></label>' +
+        '<div class="btn-row"><button class="btn" data-empezar="1">Empezar reto</button></div>' +
+        '<div class="lavado">' + (reto.agenda === "alterna"
+          ? "Este grupo se prueba en <strong>días alternos</strong> (día 1, 3 y 5): los síntomas de fructanos/GOS pueden tardar hasta 48 h."
+          : "Este grupo se prueba en <strong>3 días seguidos</strong> con dosis crecientes.") + '</div>';
+    } else {
+      var dias = prog.dias.map(function (d, i) { return bloqueDosisHTML(id, i, d); }).join("");
+      cuerpo =
+        '<p class="intro">Alimento: <strong>' + escapeHTML(prog.alimentoElegido) + '</strong>. ' +
+        escapeHTML(reto.nota) + '</p>' +
+        dias +
+        '<div class="lavado">Tras la última dosis, vuelve a dieta baja en FODMAP <strong>2-3 días</strong> ' +
+        '(hasta que se calmen los síntomas) antes de probar el siguiente grupo.</div>' +
+        '<div class="btn-row"><button class="btn peligro" data-reiniciar="' + escapeHTML(id) + '">Reiniciar este reto</button></div>';
+    }
+
+    v.innerHTML =
+      '<button class="volver" data-volver-f2="1">‹ Volver a los grupos</button>' +
+      '<div class="ficha-cab"><h2>' + escapeHTML(reto.grupo) + '</h2>' +
+      '<p class="ficha-cat">FODMAP: ' + escapeHTML(reto.fodmap) + '</p></div>' +
+      cuerpo;
+
+    var emp = v.querySelector("[data-empezar]");
+    if (emp) emp.addEventListener("click", function () {
+      var sel = document.getElementById("alimSel");
+      var fch = document.getElementById("fechaSel");
+      var alim = sel ? sel.value : reto.alimentos[0].nombre;
+      var fecha = (fch && fch.value) ? fch.value : aISO(new Date());
+      iniciarReto(id, alim, fecha);
+      renderFase2(); window.scrollTo(0, 0);
+    });
+
+    Array.prototype.forEach.call(v.querySelectorAll("input[data-slider]"), function (s) {
+      s.addEventListener("input", function () {
+        var span = v.querySelector('[data-sval="' + s.getAttribute("data-slider") + "-" + s.getAttribute("data-idx") + '"]');
+        if (span) span.textContent = s.value;
+      });
+    });
+
+    Array.prototype.forEach.call(v.querySelectorAll("[data-guardar]"), function (b) {
+      b.addEventListener("click", function () {
+        var idx = Number(b.getAttribute("data-guardar"));
+        function valor(clave) {
+          var el = v.querySelector('input[data-slider="' + clave + '"][data-idx="' + idx + '"]');
+          return el ? Number(el.value) : 0;
+        }
+        var notasEl = v.querySelector('[data-notas="' + idx + '"]');
+        guardarDia(id, idx, {
+          dolor: valor("dolor"), hinchazon: valor("hinchazon"), gases: valor("gases"),
+          notas: notasEl ? notasEl.value : ""
+        });
+        renderFase2(); window.scrollTo(0, 0);
+      });
+    });
+
+    var rei = v.querySelector("[data-reiniciar]");
+    if (rei) rei.addEventListener("click", function () {
+      if (window.confirm("¿Borrar los datos de este reto y empezar de nuevo?")) {
+        reiniciarReto(id);
+        renderFase2(); window.scrollTo(0, 0);
+      }
+    });
+
+    Array.prototype.forEach.call(v.querySelectorAll("[data-volver-f2]"), function (b) {
+      b.addEventListener("click", function () {
+        estadoFase2.retoAbierto = null; renderFase2(); window.scrollTo(0, 0);
+      });
+    });
+  }
+
+  function renderResumen() {
+    var v = document.getElementById("vista");
+    if (!v) return;
+    var data = almacen.cargar();
+    var bloques = RETOS.map(function (r) {
+      var p = data.retos[r.id];
+      if (!p) return "";
+      var filas = p.dias.map(function (d) {
+        return '<tr><td>' + escapeHTML(d.etiqueta) + '</td><td>' + escapeHTML(d.dosis) + '</td>' +
+          '<td>' + d.dolor + '</td><td>' + d.hinchazon + '</td><td>' + d.gases + '</td></tr>' +
+          (d.notas ? '<tr><td colspan="5" style="text-align:left">📝 ' + escapeHTML(d.notas) + '</td></tr>' : '');
+      }).join("");
+      return '<div class="resumen-grupo"><h3>' + escapeHTML(r.grupo) + '</h3>' +
+        '<p class="reto-sub">Alimento: ' + escapeHTML(p.alimentoElegido) + '</p>' +
+        '<table><tr><th>Dosis</th><th>Cantidad</th><th>Dolor</th><th>Hinch.</th><th>Gases</th></tr>' +
+        filas + '</table></div>';
+    }).join("");
+
+    v.innerHTML =
+      '<button class="volver" data-volver-f2="1">‹ Volver</button>' +
+      '<h2>📋 Resumen para el dietista</h2>' +
+      '<p class="intro">Síntomas registrados por dosis (escala 0-10). La app no interpreta los resultados.</p>' +
+      (bloques || '<p class="vacio">Aún no has registrado ningún grupo.</p>') +
+      '<div class="btn-row"><button class="btn sec" data-accion="exportar">⬇️ Exportar copia</button></div>';
+    wireAcciones(v);
   }
 
   /* ============================================================
@@ -888,6 +1355,59 @@
     assert(buscar("platano", DATOS, null, false).length >= 1, "encuentra plátano sin tilde");
     assert(buscar("pan", DATOS, null, false).length >= 2, "encuentra varios panes");
     assert(buscar("leche", DATOS, null, false).length >= 2, "encuentra leches");
+
+    // ---- FASE 2: definición de retos ----
+    assert(RETOS.length >= 6, "hay al menos 6 retos (hay " + RETOS.length + ")");
+    var errRetos = [];
+    RETOS.forEach(function (r) {
+      var e = validarReto(r);
+      if (e.length) errRetos.push(r.id + ": " + e.join(", "));
+    });
+    assert(errRetos.length === 0, "todos los retos son válidos" +
+      (errRetos.length ? " — ERRORES: " + errRetos.join(" | ") : ""));
+    var idsR = RETOS.map(function (r) { return r.id; });
+    var setR = {}; var dupR = [];
+    idsR.forEach(function (n) { if (setR[n]) dupR.push(n); setR[n] = true; });
+    assert(dupR.length === 0, "no hay ids de reto duplicados");
+
+    // ---- FASE 2: cálculo de fechas ----
+    assert(calcularFechas("2026-06-01", "seguida").join(",") === "2026-06-01,2026-06-02,2026-06-03",
+      "agenda seguida = días consecutivos");
+    assert(calcularFechas("2026-06-01", "alterna").join(",") === "2026-06-01,2026-06-03,2026-06-05",
+      "agenda alterna = días 1,3,5");
+    assert(calcularFechas("2026-06-30", "seguida").join(",") === "2026-06-30,2026-07-01,2026-07-02",
+      "agenda seguida cruza fin de mes");
+    assert(calcularFechas("fecha-mala", "seguida").length === 0, "fecha inválida devuelve []");
+
+    // ---- FASE 2: persistencia (en memoria, sin localStorage) ----
+    almacen._mem = null;
+    var d0 = almacen.cargar();
+    assert(d0 && d0.retos && typeof d0.retos === "object", "cargar sin datos da estructura vacía válida");
+    iniciarReto("fructosa", "Miel", "2026-06-01");
+    var p = progresoDe("fructosa");
+    assert(p && p.dias.length === 3, "iniciarReto crea 3 días");
+    assert(p.dias[0].dosis === "1 cucharadita", "iniciarReto copia la primera dosis");
+    assert(p.dias[2].fecha === "2026-06-03", "iniciarReto calcula fechas seguidas");
+    assert(estadoReto("fructosa") === "encurso", "reto recién iniciado está en curso");
+    guardarDia("fructosa", 0, { dolor: 3, hinchazon: 5, gases: 2, notas: "leve" });
+    assert(progresoDe("fructosa").dias[0].guardado === true, "guardarDia marca guardado");
+    assert(progresoDe("fructosa").dias[0].dolor === 3, "guardarDia guarda el valor");
+    assert(estadoReto("lactosa") === "sin-iniciar", "reto no iniciado = sin-iniciar");
+
+    // ---- FASE 2: exportar / importar ----
+    var exp = almacen.exportar();
+    almacen._mem = { version: 1, retos: {} };
+    assert(almacen.importar(exp) === true, "importar JSON válido funciona");
+    assert(progresoDe("fructosa").dias[0].dolor === 3, "importar restaura los datos");
+    var antes = almacen.exportar();
+    assert(almacen.importar("{ no es json") === false, "importar JSON inválido devuelve false");
+    assert(almacen.importar('{"foo":1}') === false, "importar sin 'retos' devuelve false");
+    assert(almacen.exportar() === antes, "un import inválido no pisa los datos");
+
+    // ---- FASE 2: reiniciar y limpiar ----
+    reiniciarReto("fructosa");
+    assert(progresoDe("fructosa") === null, "reiniciarReto borra el progreso");
+    almacen._mem = { version: 1, retos: {} }; // dejar limpio
   }
 
   /* ============================================================
@@ -898,7 +1418,7 @@
       runTests();
       return;
     }
-    render();
+    renderApp();
   }
 
   document.addEventListener("DOMContentLoaded", init);

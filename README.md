@@ -19,6 +19,23 @@ marcar "Mostrar solo seguros 🟢".
 
 La búsqueda ignora mayúsculas y tildes y entiende sinónimos ("patata"/"papa").
 
+## 🔄 Fase 2 — Reintroducción
+
+La pestaña **Reintroducción** ayuda a probar de forma estructurada cada grupo FODMAP
+(fructosa, lactosa, sorbitol, manitol, fructanos de trigo y de verdura, GOS):
+
+- Para cada grupo propone un **alimento de prueba** con un solo FODMAP (miel, leche,
+  champiñón…) y **3 dosis crecientes**, con alternativas elegibles.
+- Calcula las **fechas** automáticamente: 3 días seguidos, o **días alternos** (1-3-5)
+  para fructanos y GOS, porque sus síntomas tardan más en aparecer.
+- Registra los **síntomas** por dosis (dolor, hinchazón, gases 0-10 + notas).
+- Recuerda los **días de descanso** entre grupos.
+- Genera un **resumen** para enseñar al dietista.
+
+El diario se **guarda solo** en el móvil (sin internet ni cuentas). Usa **Exportar copia**
+para hacer una copia de seguridad o pasarla a otro dispositivo, e **Importar copia** para
+restaurarla. La app **registra, no diagnostica**: la tolerancia la interpretas con tu dietista.
+
 ## Instalar en el móvil (icono en la pantalla de inicio)
 
 1. Envíate `SII-FODMAP.html` por WhatsApp/email y ábrelo en el navegador del móvil.
