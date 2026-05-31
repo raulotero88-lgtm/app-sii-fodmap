@@ -866,7 +866,8 @@
       nota:"La miel contiene solo fructosa, por eso es ideal para probar este grupo.",
       alimentos:[
         { nombre:"Miel", sugerido:true, dosis:["1 cucharadita","2 cucharaditas","1 cucharada"] },
-        { nombre:"Mango", sugerido:false, dosis:["1/4 de pieza","1/2 pieza","1 pieza pequeña"] }
+        { nombre:"Mango", sugerido:false, dosis:["1/4 de pieza","1/2 pieza","1 pieza pequeña"] },
+        { nombre:"Zumo de naranja", sugerido:false, dosis:["1/2 vaso (125 ml)","3/4 de vaso","1 vaso (250 ml)"] }
       ] },
     { id:"lactosa", grupo:"Lactosa", agenda:"seguida", fodmap:"Lactosa",
       nota:"La leche normal es el clásico alimento de prueba para la lactosa.",
@@ -875,16 +876,19 @@
         { nombre:"Yogur natural normal", sugerido:false, dosis:["1/4 tarrina","1/2 tarrina","1 tarrina (125 g)"] }
       ] },
     { id:"sorbitol", grupo:"Sorbitol", agenda:"seguida", fodmap:"Sorbitol",
-      nota:"Las moras tienen sorbitol como FODMAP dominante (evita el aguacate: tiene otro poliol).",
+      nota:"Las moras tienen sorbitol como FODMAP dominante. Elige el alimento que estés reintroduciendo.",
       alimentos:[
         { nombre:"Moras / zarzamoras", sugerido:true, dosis:["5 moras","10 moras","20 moras"] },
-        { nombre:"Albaricoque", sugerido:false, dosis:["1/2 unidad","1 unidad","2 unidades"] }
+        { nombre:"Albaricoque", sugerido:false, dosis:["1/2 unidad","1 unidad","2 unidades"] },
+        { nombre:"Aguacate", sugerido:false, dosis:["1/8 de pieza","1/4 de pieza","1/2 pieza"],
+          nota:"Monash retiró el aguacate como alimento de prueba estándar del sorbitol porque también contiene perseitol (otro poliol), lo que puede enturbiar el resultado. Si tu dietista te lo ha indicado, adelante." }
       ] },
     { id:"manitol", grupo:"Manitol", agenda:"seguida", fodmap:"Manitol",
       nota:"El champiñón es rico en manitol y bajo en otros FODMAPs.",
       alimentos:[
         { nombre:"Champiñón", sugerido:true, dosis:["1/2 champiñón","1 champiñón","3 champiñones"] },
-        { nombre:"Coliflor", sugerido:false, dosis:["1/4 taza","1/2 taza","1 taza"] }
+        { nombre:"Coliflor", sugerido:false, dosis:["1/4 taza","1/2 taza","1 taza"] },
+        { nombre:"Setas Portobello", sugerido:false, dosis:["1/2 seta","1 seta","2 setas"] }
       ] },
     { id:"fructanos-trigo", grupo:"Fructanos (trigo)", agenda:"alterna", fodmap:"Fructanos",
       nota:"Prueba los fructanos del trigo por separado de los de la verdura: se toleran distinto.",
@@ -988,16 +992,26 @@
     return data.retos[id] || null;
   }
 
-  function iniciarReto(id, alimentoNombre, fechaInicio) {
+  function iniciarReto(id, alimentoNombre, fechaInicio, dosisCustom) {
     var reto = RETOS.filter(function (r) { return r.id === id; })[0];
     if (!reto) return;
-    var alimento = reto.alimentos.filter(function (a) { return a.nombre === alimentoNombre; })[0] || reto.alimentos[0];
+    var esCustom = Array.isArray(dosisCustom) && dosisCustom.length === 3;
+    var nombre, dosis;
+    if (esCustom) {
+      nombre = (alimentoNombre || "Mi alimento");
+      dosis = dosisCustom;
+    } else {
+      var alimento = reto.alimentos.filter(function (a) { return a.nombre === alimentoNombre; })[0] || reto.alimentos[0];
+      nombre = alimento.nombre;
+      dosis = alimento.dosis;
+    }
     var fechas = calcularFechas(fechaInicio, reto.agenda);
     var data = almacen.cargar();
     data.retos[id] = {
-      alimentoElegido: alimento.nombre,
+      alimentoElegido: nombre,
+      personalizado: esCustom,
       fechaInicio: fechaInicio,
-      dias: alimento.dosis.map(function (d, i) {
+      dias: dosis.map(function (d, i) {
         return { etiqueta: "Dosis " + (i + 1), dosis: d, fecha: fechas[i] || "",
           dolor: 0, hinchazon: 0, gases: 0, notas: "", guardado: false };
       })
@@ -1156,11 +1170,24 @@
           escapeHTML(a.nombre) + (a.sugerido ? " (recomendado)" : "") +
           ' — ' + escapeHTML(a.dosis.join(" / ")) + '</option>';
       }).join("");
+      opciones += '<option value="__custom__">✏️ Otro alimento (lo escribo yo)…</option>';
       var hoy = aISO(new Date());
       cuerpo =
         '<p class="intro">' + escapeHTML(reto.nota) + '</p>' +
         '<label>Alimento de prueba' +
         '<select class="alim" id="alimSel">' + opciones + '</select></label>' +
+        '<div id="notaAlim"></div>' +
+        '<div id="customWrap" hidden>' +
+          '<label>Nombre de tu alimento' +
+          '<input type="text" id="customNombre" class="alim" placeholder="ej. Aguacate" autocomplete="off"></label>' +
+          '<label>Dosis 1 (pequeña)' +
+          '<input type="text" id="customD0" class="alim" placeholder="ej. 1/2 tostada" autocomplete="off"></label>' +
+          '<label>Dosis 2 (media)' +
+          '<input type="text" id="customD1" class="alim" placeholder="ej. 1 tostada" autocomplete="off"></label>' +
+          '<label>Dosis 3 (grande)' +
+          '<input type="text" id="customD2" class="alim" placeholder="ej. 2 tostadas" autocomplete="off"></label>' +
+          '<p class="reto-sub">Pon las 3 cantidades crecientes que te haya indicado tu dietista.</p>' +
+        '</div>' +
         '<label>Fecha de la primera dosis' +
         '<input type="date" id="fechaSel" class="alim" value="' + hoy + '"></label>' +
         '<div class="btn-row"><button class="btn" data-empezar="1">Empezar reto</button></div>' +
@@ -1169,9 +1196,14 @@
           : "Este grupo se prueba en <strong>3 días seguidos</strong> con dosis crecientes.") + '</div>';
     } else {
       var dias = prog.dias.map(function (d, i) { return bloqueDosisHTML(id, i, d); }).join("");
+      var alElegido = reto.alimentos.filter(function (a) { return a.nombre === prog.alimentoElegido; })[0];
+      var notaAl = (alElegido && alElegido.nota)
+        ? '<div class="lavado">ℹ️ ' + escapeHTML(alElegido.nota) + '</div>' : "";
       cuerpo =
-        '<p class="intro">Alimento: <strong>' + escapeHTML(prog.alimentoElegido) + '</strong>. ' +
+        '<p class="intro">Alimento: <strong>' + escapeHTML(prog.alimentoElegido) + '</strong>' +
+        (prog.personalizado ? ' (personalizado)' : '') + '. ' +
         escapeHTML(reto.nota) + '</p>' +
+        notaAl +
         dias +
         '<div class="lavado">Tras la última dosis, vuelve a dieta baja en FODMAP <strong>2-3 días</strong> ' +
         '(hasta que se calmen los síntomas) antes de probar el siguiente grupo.</div>' +
@@ -1184,13 +1216,44 @@
       '<p class="ficha-cat">FODMAP: ' + escapeHTML(reto.fodmap) + '</p></div>' +
       cuerpo;
 
+    var sel = document.getElementById("alimSel");
+    if (sel) {
+      var actualizarSel = function () {
+        var wrap = document.getElementById("customWrap");
+        var notaDiv = document.getElementById("notaAlim");
+        if (sel.value === "__custom__") {
+          if (wrap) wrap.hidden = false;
+          if (notaDiv) notaDiv.innerHTML = "";
+        } else {
+          if (wrap) wrap.hidden = true;
+          var al = reto.alimentos.filter(function (a) { return a.nombre === sel.value; })[0];
+          if (notaDiv) notaDiv.innerHTML = (al && al.nota)
+            ? '<div class="lavado">ℹ️ ' + escapeHTML(al.nota) + '</div>' : "";
+        }
+      };
+      sel.addEventListener("change", actualizarSel);
+      actualizarSel();
+    }
+
     var emp = v.querySelector("[data-empezar]");
     if (emp) emp.addEventListener("click", function () {
-      var sel = document.getElementById("alimSel");
+      var selEl = document.getElementById("alimSel");
       var fch = document.getElementById("fechaSel");
-      var alim = sel ? sel.value : reto.alimentos[0].nombre;
       var fecha = (fch && fch.value) ? fch.value : aISO(new Date());
-      iniciarReto(id, alim, fecha);
+      if (selEl && selEl.value === "__custom__") {
+        function val(idc) { var e = document.getElementById(idc); return e ? e.value.trim() : ""; }
+        var nombre = val("customNombre");
+        if (!nombre) { window.alert("Escribe el nombre de tu alimento."); return; }
+        var dosis = [
+          val("customD0") || "Dosis pequeña",
+          val("customD1") || "Dosis media",
+          val("customD2") || "Dosis grande"
+        ];
+        iniciarReto(id, nombre, fecha, dosis);
+      } else {
+        var alim = selEl ? selEl.value : reto.alimentos[0].nombre;
+        iniciarReto(id, alim, fecha);
+      }
       renderFase2(); window.scrollTo(0, 0);
     });
 
@@ -1404,9 +1467,32 @@
     assert(almacen.importar('{"foo":1}') === false, "importar sin 'retos' devuelve false");
     assert(almacen.exportar() === antes, "un import inválido no pisa los datos");
 
-    // ---- FASE 2: reiniciar y limpiar ----
+    // ---- FASE 2: reiniciar ----
     reiniciarReto("fructosa");
     assert(progresoDe("fructosa") === null, "reiniciarReto borra el progreso");
+
+    // ---- FASE 2: alimento personalizado ----
+    iniciarReto("sorbitol", "Aguacate de Rocío", "2026-07-01", ["1/2 tostada", "1 tostada", "2 tostadas"]);
+    var pc = progresoDe("sorbitol");
+    assert(pc && pc.dias.length === 3, "iniciarReto personalizado crea 3 días");
+    assert(pc.alimentoElegido === "Aguacate de Rocío", "personalizado usa el nombre escrito");
+    assert(pc.dias[1].dosis === "1 tostada", "personalizado usa las dosis escritas");
+    assert(pc.personalizado === true, "marca el reto como personalizado");
+    reiniciarReto("sorbitol");
+
+    // ---- FASE 2: nuevos alimentos del catálogo ----
+    function alimentoEn(idr, nombre) {
+      var r = RETOS.filter(function (x) { return x.id === idr; })[0];
+      return !!(r && r.alimentos.some(function (a) { return a.nombre === nombre; }));
+    }
+    assert(alimentoEn("fructosa", "Mango"), "fructosa incluye Mango");
+    assert(alimentoEn("fructosa", "Zumo de naranja"), "fructosa incluye Zumo de naranja");
+    assert(alimentoEn("sorbitol", "Aguacate"), "sorbitol incluye Aguacate");
+    assert(alimentoEn("manitol", "Setas Portobello"), "manitol incluye Setas Portobello");
+    var avoc = RETOS.filter(function (r) { return r.id === "sorbitol"; })[0]
+      .alimentos.filter(function (a) { return a.nombre === "Aguacate"; })[0];
+    assert(avoc && avoc.nota && avoc.nota.length > 0, "el Aguacate lleva nota informativa (perseitol)");
+
     almacen._mem = { version: 1, retos: {} }; // dejar limpio
   }
 

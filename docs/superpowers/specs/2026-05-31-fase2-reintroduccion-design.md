@@ -47,13 +47,23 @@ un solo FODMAP dominante), las 3 dosis orientativas y el tipo de agenda.
 
 | id | Grupo | Sugerido | Alternativas | Agenda |
 |----|-------|----------|--------------|--------|
-| fructosa | Fructosa | Miel | Mango, Espárrago | seguida (1-2-3) |
+| fructosa | Fructosa | Miel | Mango, Zumo de naranja | seguida (1-2-3) |
 | lactosa | Lactosa | Leche normal | Yogur normal | seguida |
-| sorbitol | Sorbitol | Mora/zarzamora | Albaricoque | seguida |
-| manitol | Manitol | Champiñón | Coliflor | seguida |
+| sorbitol | Sorbitol | Mora/zarzamora | Albaricoque, Aguacate* | seguida |
+| manitol | Manitol | Champiñón | Coliflor, Setas Portobello | seguida |
 | fructanos-trigo | Fructanos (trigo) | Pan de trigo | Pasta de trigo | alterna (1-3-5) |
 | fructanos-verdura | Fructanos (verdura) | Cebolla | Ajo | alterna |
 | gos | GOS (galactanos) | Garbanzos (bote) | Lentejas, Almendras | alterna |
+
+*El Aguacate lleva una **nota informativa**: Monash lo retiró como prueba estándar del
+sorbitol por contener también perseitol (otro poliol). Se incluye porque puede indicarlo
+el dietista; la nota es neutra y no bloquea.
+
+**Alimento personalizado:** además de las opciones anteriores, cada grupo ofrece
+"✏️ Otro alimento", donde la usuaria escribe el nombre y sus **3 dosis crecientes**
+(las que le indique su dietista). Se registra igual que los predefinidos y se marca con
+`personalizado: true`. Esto resuelve el feedback de uso real: reintroducir cualquier
+alimento del grupo, no solo los sugeridos.
 
 Dosis orientativas por alimento sugerido (ejemplo, las 3 dosis):
 - **Miel:** 1 cucharadita → 2 cucharaditas → 1 cucharada.

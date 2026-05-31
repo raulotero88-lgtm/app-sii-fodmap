@@ -25,7 +25,9 @@ La pestaña **Reintroducción** ayuda a probar de forma estructurada cada grupo 
 (fructosa, lactosa, sorbitol, manitol, fructanos de trigo y de verdura, GOS):
 
 - Para cada grupo propone un **alimento de prueba** con un solo FODMAP (miel, leche,
-  champiñón…) y **3 dosis crecientes**, con alternativas elegibles.
+  champiñón…) y **3 dosis crecientes**, con varias alternativas elegibles.
+- Si reintroduces **otro alimento** (el que te indique tu dietista), elige
+  "✏️ Otro alimento" y escribe su nombre y sus 3 dosis: queda registrado igual.
 - Calcula las **fechas** automáticamente: 3 días seguidos, o **días alternos** (1-3-5)
   para fructanos y GOS, porque sus síntomas tardan más en aparecer.
 - Registra los **síntomas** por dosis (dolor, hinchazón, gases 0-10 + notas).
