@@ -107,38 +107,6 @@ Y una línea al final del `<body>` para registrar el SW y escuchar el evento de 
 
 Los datos del diario (síntomas, notas, configuración) se almacenan exclusivamente en `localStorage` del dispositivo de Laura. El repositorio público solo contiene código, sin datos de ningún usuario.
 
-## Tutorial interactivo
-
-### Activación
-
-Un botón `?` fijo en la esquina superior derecha del header lanza el tour. Se puede saltar en cualquier momento. No se muestra automáticamente en ningún caso.
-
-### Pasos (8 en total)
-
-1. **Bienvenida** (header) — qué es la app y para qué sirve
-2. **Busca tu alimento** (barra de búsqueda) — tolera tildes, mayúsculas y sinónimos
-3. **El semáforo FODMAP** (tarjeta de resultado) — cómo leer verde/amarillo/rojo y la ficha
-4. **Filtra la lista** (filtros categoría + solo seguros) — cómo acotar los resultados
-5. **Fase 2: Reintroducción** (tab Reintroducción) — cuándo y para qué se usa
-6. **Elige el reto** (selector de grupo FODMAP) — cómo elegir el grupo y el alimento
-7. **Registra síntomas** (formulario del diario) — cómo anotar dolor, hinchazón y gases
-8. **Resumen para tu dietista** (botón Ver resumen) — cómo exportar o mostrar el resumen
-
-### Diseño visual
-
-- Overlay oscuro semitransparente sobre toda la pantalla.
-- El elemento del paso actual queda **iluminado** con un anillo verde (box-shadow) y z-index elevado.
-- Tooltip fijo en la parte inferior de la pantalla (zona pulgar) con: título, descripción, botones `← Anterior` / `Siguiente →` y `✕ Saltar`.
-- Implementación: vanilla JS sin dependencias externas.
-
-### Navegación entre secciones
-
-Si el paso requiere estar en la tab de Reintroducción y el usuario está en el Buscador (o viceversa), el tour cambia de tab automáticamente antes de mostrar el paso.
-
-### Persistencia
-
-No se guarda si el tutorial ha sido visto. El botón `?` siempre está disponible para relanzarlo.
-
 ## Tests
 
 Los 59 tests existentes (`?test`) deben seguir pasando sin cambios tras el renombrado del archivo. El service worker no interfiere con la URL `?test`.
