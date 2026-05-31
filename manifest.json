@@ -1,0 +1,14 @@
+{
+  "name": "App SII / FODMAP",
+  "short_name": "SII FODMAP",
+  "description": "Buscador de alimentos y guía de reintroducción FODMAP",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2ecc71",
+  "lang": "es",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
