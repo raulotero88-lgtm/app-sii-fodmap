@@ -2,7 +2,7 @@
 
 App para consultar al instante si un alimento es apto en la dieta baja en FODMAP
 (Síndrome del Intestino Irritable), pensada para la **fase 1 (eliminación)**.
-Funciona **sin internet** una vez instalada. 130 alimentos.
+Funciona **sin internet** una vez instalada. 131 alimentos.
 
 **URL:** [https://raulotero88-lgtm.github.io/app-sii-fodmap/](https://raulotero88-lgtm.github.io/app-sii-fodmap/)
 

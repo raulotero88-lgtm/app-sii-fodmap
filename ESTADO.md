@@ -12,16 +12,18 @@ y funciona offline; las actualizaciones llegan automáticamente via banner.
 - **Estado general:** ✅ funcional, en uso y publicada en GitHub Pages.
 - **URL:** [https://raulotero88-lgtm.github.io/app-sii-fodmap/](https://raulotero88-lgtm.github.io/app-sii-fodmap/)
 - **Tests:** 59 ✓ / 0 ✗ (abrir URL + `?test`).
-- **Alimentos en el buscador:** 130.
+- **Alimentos en el buscador:** 131.
 - **Retos de reintroducción:** 7 grupos FODMAP.
+- **Datos:** revisados y contrastados con la guía clínica del usuario (AEG/SEEN vía NotebookLM) — criterio híbrido prudente. Ver `FUENTES.md`.
 
 ## Módulos
 
 ### 1. Buscador de alimentos (Fase 1) — ✅ Completado
-- 130 alimentos curados con semáforo 🟢🟡🔴.
-- Por alimento: ración orientativa, FODMAP responsable, alternativas, consejo, fuente.
+- 131 alimentos curados con semáforo 🟢🟡🔴.
+- Por alimento: ración orientativa, FODMAP responsable (o "Motivo del límite"), alternativas, consejo, fuente.
 - Búsqueda tolerante (ignora tildes/mayúsculas, entiende sinónimos).
 - Filtros por categoría y "solo seguros 🟢".
+- Aviso de **acumulación (stacking)** y de porciones de fruta en cabecera.
 
 ### 2. Reintroducción (Fase 2) — ✅ Completado
 - 7 grupos: Fructosa, Lactosa, Sorbitol, Manitol, Fructanos (trigo), Fructanos (verdura), GOS.
@@ -43,6 +45,7 @@ y funciona offline; las actualizaciones llegan automáticamente via banner.
 | 2026-05-31 | Módulo Fase 2: diario, persistencia, resumen (50 tests) |
 | 2026-05-31 | Fase 2: alimento personalizado + catálogo ampliado (59 tests) |
 | 2026-05-31 | PWA: manifest, service worker, iconos, banner de actualización, GitHub Pages |
+| 2026-05-31 | Verificación clínica de los 130 datos vs NotebookLM (AEG/SEEN); correcciones con criterio híbrido prudente, campo "Motivo del límite", +Edamame (131), aviso de stacking. SW v4 |
 
 ## Backlog / ideas futuras (sin empezar)
 
