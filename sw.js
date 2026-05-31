@@ -1,4 +1,4 @@
-const VERSION = 'v1';
+const VERSION = 'v2';
 const CACHE_PREFIX = 'sii-fodmap-';
 const CACHE_NAME = CACHE_PREFIX + VERSION;
 
