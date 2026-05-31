@@ -1,0 +1,907 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+  <meta name="theme-color" content="#2e7d32">
+  <title>¿Puedo comerlo? · SII/FODMAP</title>
+  <style>
+    :root{
+      --verde:#2e7d32; --verde-bg:#e8f5e9;
+      --amar:#f57f17; --amar-bg:#fff8e1;
+      --rojo:#c62828; --rojo-bg:#ffebee;
+      --txt:#1a1a1a; --gris:#666; --linea:#e0e0e0;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+      color:var(--txt);background:#fafafa;line-height:1.45;-webkit-text-size-adjust:100%}
+    #app{max-width:560px;margin:0 auto;padding:16px 14px 56px}
+    header h1{font-size:1.55rem;margin:.2em 0;display:flex;align-items:center;gap:.3em}
+    .aviso{font-size:.8rem;color:var(--gris);background:#fff;border:1px solid var(--linea);
+      padding:9px 11px;border-radius:8px;margin:0 0 12px}
+    #q{width:100%;font-size:1.1rem;padding:14px;border:2px solid var(--linea);
+      border-radius:12px;outline:none;background:#fff}
+    #q:focus{border-color:var(--verde)}
+    .seguros{display:inline-flex;align-items:center;gap:7px;margin:11px 2px;font-size:.95rem;cursor:pointer}
+    .seguros input{width:18px;height:18px}
+    .chips{display:flex;gap:8px;overflow-x:auto;padding:4px 0 10px;-webkit-overflow-scrolling:touch;scrollbar-width:thin}
+    .chip{flex:0 0 auto;border:1px solid var(--linea);background:#fff;border-radius:999px;
+      padding:8px 14px;font-size:.9rem;cursor:pointer;white-space:nowrap}
+    .chip.activo{background:var(--verde);color:#fff;border-color:var(--verde)}
+    .conteo{font-size:.8rem;color:var(--gris);margin:2px 2px 8px}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:10px;margin-top:4px}
+    .card{display:flex;flex-direction:column;align-items:flex-start;gap:3px;text-align:left;
+      border:1px solid var(--linea);border-radius:12px;padding:12px;background:#fff;cursor:pointer;
+      font-family:inherit;font-size:1rem}
+    .card .emoji{font-size:1.5rem;line-height:1}
+    .card-nombre{font-weight:600}
+    .card-cat{font-size:.75rem;color:var(--gris)}
+    .card.nivel-verde{background:var(--verde-bg);border-color:#c8e6c9}
+    .card.nivel-amarillo{background:var(--amar-bg);border-color:#ffe082}
+    .card.nivel-rojo{background:var(--rojo-bg);border-color:#ffcdd2}
+    .vacio{color:var(--gris);text-align:center;padding:28px 10px}
+    .ficha{background:#fff;border-radius:14px;padding:16px;border:1px solid var(--linea)}
+    .ficha.nivel-verde{border-top:6px solid var(--verde)}
+    .ficha.nivel-amarillo{border-top:6px solid var(--amar)}
+    .ficha.nivel-rojo{border-top:6px solid var(--rojo)}
+    .volver{background:none;border:none;color:var(--verde);font-size:1rem;cursor:pointer;padding:6px 0;font-family:inherit}
+    .ficha-cab{text-align:center;margin:6px 0 4px}
+    .emoji-grande{font-size:3.2rem;line-height:1}
+    .veredicto{font-weight:700;margin:.25em 0;font-size:1.15rem}
+    .veredicto.nivel-verde{color:var(--verde)}
+    .veredicto.nivel-amarillo{color:var(--amar)}
+    .veredicto.nivel-rojo{color:var(--rojo)}
+    .ficha-cat{font-size:.8rem;color:var(--gris);margin:0}
+    .bloque{border-top:1px solid var(--linea);padding:11px 0}
+    .bloque h4{margin:0 0 4px;font-size:.78rem;text-transform:uppercase;color:var(--gris);letter-spacing:.04em}
+    .bloque p{margin:0}
+    .bloque ul{margin:.2em 0;padding-left:1.2em}
+    .pill{display:inline-block;background:#eee;border-radius:6px;padding:2px 8px;margin:2px 4px 2px 0;font-size:.85rem}
+    .fuente{font-size:.75rem;color:var(--gris);margin-top:14px;border-top:1px dashed var(--linea);padding-top:10px}
+    footer{margin-top:28px;font-size:.72rem;color:#999;text-align:center}
+    #test-output{font-family:monospace;font-size:13px;padding:16px;max-width:760px;margin:0 auto}
+    @media(max-width:360px){.grid{grid-template-columns:1fr 1fr}}
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+  <div id="test-output" hidden></div>
+
+  <script>
+  "use strict";
+
+  /* ============================================================
+     CATEGORÍAS
+     ============================================================ */
+  var CATEGORIAS = ["Verduras","Frutas","Lácteos","Cereales y pan",
+    "Proteínas","Legumbres","Frutos secos y semillas","Bebidas",
+    "Condimentos y otros","Dulces y snacks"];
+
+  /* ============================================================
+     BASE DE DATOS (curada y trazable)
+     nivel: "verde" (bajo FODMAP) | "amarillo" (depende de la ración) | "rojo" (alto, evitar en fase 1)
+     ============================================================ */
+  var DATOS = [
+    /* ---------- VERDURAS ---------- */
+    { nombre:"Cebolla", sinonimos:["cebolla blanca","cebolla morada","cebolla dulce"], categoria:"Verduras",
+      nivel:"rojo", racion_segura:"Evitar en fase 1, también en pequeñas cantidades.",
+      fodmap:["Fructanos"], alternativas:["Parte verde de la cebolleta","Cebollino","Aceite de oliva infusionado con cebolla"],
+      consejo:"Los fructanos son solubles en agua pero NO en aceite: un aceite infusionado (calentar cebolla en aceite y retirarla) aporta sabor sin FODMAPs.",
+      fuente:"Monash FODMAP / Noisy Guts" },
+    { nombre:"Ajo", sinonimos:["diente de ajo","ajo en polvo"], categoria:"Verduras",
+      nivel:"rojo", racion_segura:"Evitar en fase 1. El ajo seco/en polvo es aún más concentrado.",
+      fodmap:["Fructanos"], alternativas:["Aceite de oliva infusionado con ajo","Cebollino","Asafétida (una pizca)"],
+      consejo:"El ajo en aceite infusionado da sabor sin fructanos (no pasan al aceite). Revisa que no lleve trozos.",
+      fuente:"Monash FODMAP / Noisy Guts" },
+    { nombre:"Puerro", sinonimos:["puerro bulbo","parte blanca del puerro"], categoria:"Verduras",
+      nivel:"rojo", racion_segura:"La parte blanca (bulbo): evitar. La parte verde: hasta ~⅔ taza es segura.",
+      fodmap:["Fructanos"], alternativas:["Parte verde del puerro","Cebollino","Parte verde de cebolleta"],
+      consejo:"Aprovecha solo la parte verde de las hojas para dar sabor.",
+      fuente:"Monash FODMAP" },
+    { nombre:"Champiñón", sinonimos:["seta","setas","champiñones"], categoria:"Verduras",
+      nivel:"rojo", racion_segura:"Evitar en fase 1.",
+      fodmap:["Manitol"], alternativas:["Setas ostra (toleradas en ración pequeña)","Berenjena","Calabacín"],
+      consejo:"Las setas ostra (oyster) son la excepción: bajas en FODMAP en ración pequeña.",
+      fuente:"Monash FODMAP" },
+    { nombre:"Coliflor", sinonimos:[], categoria:"Verduras",
+      nivel:"rojo", racion_segura:"Evitar en fase 1.",
+      fodmap:["Manitol"], alternativas:["Brócoli (cabezas)","Calabacín","Zanahoria"],
+      consejo:"El 'arroz de coliflor' también es alto: usa arroz normal o arroz de brócoli.",
+      fuente:"Monash FODMAP" },
+    { nombre:"Espárrago", sinonimos:["espárragos"], categoria:"Verduras",
+      nivel:"rojo", racion_segura:"Evitar en fase 1.",
+      fodmap:["Fructanos","Fructosa"], alternativas:["Judía verde","Calabacín (ración)","Pimiento rojo"],
+      consejo:"", fuente:"Monash FODMAP" },
+    { nombre:"Alcachofa", sinonimos:["alcachofas"], categoria:"Verduras",
+      nivel:"rojo", racion_segura:"Evitar en fase 1.",
+      fodmap:["Fructanos"], alternativas:["Corazones de palmito","Calabacín","Berenjena"],
+      consejo:"", fuente:"Monash FODMAP" },
+    { nombre:"Guisantes", sinonimos:["guisante","arvejas"], categoria:"Verduras",
+      nivel:"rojo", racion_segura:"Evitar en fase 1 (incluso ~½ taza es alto en GOS).",
+      fodmap:["GOS","Fructanos"], alternativas:["Judía verde","Zanahoria","Tirabeque (ración pequeña)"],
+      consejo:"", fuente:"Monash FODMAP" },
+    { nombre:"Remolacha", sinonimos:["betabel"], categoria:"Verduras",
+      nivel:"amarillo", racion_segura:"Hasta ~2 lonchas (20 g) cocida. Más cantidad es alta en fructanos.",
+      fodmap:["Fructanos"], alternativas:["Zanahoria","Pimiento rojo","Tomate"],
+      consejo:"", fuente:"Monash FODMAP" },
+    { nombre:"Apio", sinonimos:[], categoria:"Verduras",
+      nivel:"amarillo", racion_segura:"Hasta ~¼ de rama (10 g). Más cantidad es alto en manitol.",
+      fodmap:["Manitol"], alternativas:["Pepino","Zanahoria","Pimiento rojo"],
+      consejo:"", fuente:"Monash FODMAP" },
+    { nombre:"Calabacín", sinonimos:["zucchini","calabacines"], categoria:"Verduras",
+      nivel:"amarillo", racion_segura:"Hasta ~⅓ taza (65 g). En grandes cantidades sube en fructanos.",
+      fodmap:["Fructanos"], alternativas:["Berenjena","Pimiento rojo","Judía verde"],
+      consejo:"En ración normal es seguro; solo cuidado con porciones muy grandes.",
+      fuente:"Monash FODMAP" },
+    { nombre:"Brócoli", sinonimos:["brecol","bróculi"], categoria:"Verduras",
+      nivel:"amarillo", racion_segura:"Cabezas/floretes hasta ~¾ taza. Los tallos son más altos en fructanos.",
+      fodmap:["Fructanos"], alternativas:["Judía verde","Pak choi","Espinaca baby"],
+      consejo:"Prioriza las cabezas sobre el tronco.",
+      fuente:"Monash FODMAP" },
+    { nombre:"Boniato", sinonimos:["batata","camote"], categoria:"Verduras",
+      nivel:"amarillo", racion_segura:"Hasta ~½ taza (75 g). Más cantidad es alto en manitol.",
+      fodmap:["Manitol"], alternativas:["Patata","Calabaza kabocha","Zanahoria"],
+      consejo:"", fuente:"Monash FODMAP" },
+    { nombre:"Maíz dulce", sinonimos:["mazorca","choclo","elote"], categoria:"Verduras",
+      nivel:"amarillo", racion_segura:"Hasta ~½ mazorca (38 g). Más es alto en sorbitol/fructanos.",
+      fodmap:["Sorbitol","Fructanos"], alternativas:["Polenta","Tortita de maíz","Zanahoria"],
+      consejo:"", fuente:"Monash FODMAP" },
+    { nombre:"Col / repollo", sinonimos:["col","repollo","col blanca"], categoria:"Verduras",
+      nivel:"amarillo", racion_segura:"Col común hasta ~¾ taza (75 g). La col rizada (savoy) es más baja.",
+      fodmap:["Sorbitol"], alternativas:["Lechuga","Pak choi","Acelga"],
+      consejo:"", fuente:"Monash FODMAP" },
+    { nombre:"Zanahoria", sinonimos:["zanahorias"], categoria:"Verduras",
+      nivel:"verde", racion_segura:"Sin límite práctico en fase 1.",
+      fodmap:[], alternativas:[], consejo:"", fuente:"Monash FODMAP" },
+    { nombre:"Pepino", sinonimos:[], categoria:"Verduras",
+      nivel:"verde", racion_segura:"Hasta ~¾ taza (75 g) es seguro; en general bien tolerado.",
+      fodmap:[], alternativas:[], consejo:"", fuente:"Monash FODMAP" },
+    { nombre:"Tomate", sinonimos:["tomate rama","tomate pera","tomate cherry"], categoria:"Verduras",
+      nivel:"verde", racion_segura:"~1 tomate mediano. Los cherry, hasta ~5.",
+      fodmap:[], alternativas:[], consejo:"El tomate seco y el concentrado/triturado son más altos: úsalos con moderación.",
+      fuente:"Monash FODMAP" },
+    { nombre:"Pimiento rojo", sinonimos:["pimiento","morrón rojo"], categoria:"Verduras",
+      nivel:"verde", racion_segura:"Hasta ~½ pimiento (75 g).",
+      fodmap:[], alternativas:[], consejo:"El pimiento verde es algo más bajo aún.",
+      fuente:"Monash FODMAP" },
+    { nombre:"Berenjena", sinonimos:["berenjenas"], categoria:"Verduras",
+      nivel:"verde", racion_segura:"Hasta ~1 taza (75 g).",
+      fodmap:[], alternativas:[], consejo:"", fuente:"Monash FODMAP" },
+    { nombre:"Lechuga", sinonimos:["lechuga romana","iceberg","hoja de roble"], categoria:"Verduras",
+      nivel:"verde", racion_segura:"Sin límite práctico.",
+      fodmap:[], alternativas:[], consejo:"", fuente:"Monash FODMAP" },
+    { nombre:"Espinaca baby", sinonimos:["espinacas","espinaca","brotes de espinaca"], categoria:"Verduras",
+      nivel:"verde", racion_segura:"Espinaca baby hasta ~1,5 tazas (75 g).",
+      fodmap:[], alternativas:[], consejo:"En cantidades muy grandes puede aportar fructanos; en ración normal es segura.",
+      fuente:"Monash FODMAP" },
+    { nombre:"Patata", sinonimos:["papa","patatas"], categoria:"Verduras",
+      nivel:"verde", racion_segura:"Sin límite práctico. Excelente base segura.",
+      fodmap:[], alternativas:[], consejo:"Cocida, asada o en puré con leche sin lactosa.",
+      fuente:"Monash FODMAP" },
+    { nombre:"Judía verde", sinonimos:["judías verdes","habichuela","ejote"], categoria:"Verduras",
+      nivel:"verde", racion_segura:"Hasta ~15 judías (75 g).",
+      fodmap:[], alternativas:[], consejo:"", fuente:"Monash FODMAP" },
+    { nombre:"Calabaza", sinonimos:["calabaza kabocha","calabaza japonesa"], categoria:"Verduras",
+      nivel:"verde", racion_segura:"Calabaza kabocha hasta ~1 taza. La calabaza moscada (butternut) es amarilla (½ taza máx.).",
+      fodmap:[], alternativas:[], consejo:"Distingue: kabocha = baja; butternut/moscada = limita la ración.",
+      fuente:"Monash FODMAP" },
+    { nombre:"Acelga", sinonimos:["acelgas"], categoria:"Verduras",
+      nivel:"verde", racion_segura:"Hasta ~1 taza.",
+      fodmap:[], alternativas:[], consejo:"", fuente:"Monash FODMAP" },
+    { nombre:"Pak choi", sinonimos:["bok choy","col china"], categoria:"Verduras",
+      nivel:"verde", racion_segura:"Hasta ~1 taza (75 g).",
+      fodmap:[], alternativas:[], consejo:"Buena alternativa salteada en lugar de col común.",
+      fuente:"Monash FODMAP" },
+    { nombre:"Aceitunas", sinonimos:["olivas"], categoria:"Verduras",
+      nivel:"verde", racion_segura:"Verdes o negras, bien toleradas.",
+      fodmap:[], alternativas:[], consejo:"Revisa que el relleno no lleve ajo/cebolla.",
+      fuente:"Monash FODMAP" },
+    { nombre:"Jengibre", sinonimos:["gengibre"], categoria:"Verduras",
+      nivel:"verde", racion_segura:"Sin límite práctico como condimento.",
+      fodmap:[], alternativas:[], consejo:"Útil además para las náuseas y la digestión.",
+      fuente:"Monash FODMAP" },
+
+    /* ---------- FRUTAS ---------- */
+    { nombre:"Manzana", sinonimos:["manzanas"], categoria:"Frutas",
+      nivel:"rojo", racion_segura:"Evitar en fase 1.",
+      fodmap:["Fructosa","Sorbitol"], alternativas:["Naranja","Kiwi","Fresas","Plátano firme"],
+      consejo:"El zumo y la compota de manzana también son altos.",
+      fuente:"Monash FODMAP" },
+    { nombre:"Pera", sinonimos:["peras"], categoria:"Frutas",
+      nivel:"rojo", racion_segura:"Evitar en fase 1.",
+      fodmap:["Fructosa","Sorbitol"], alternativas:["Naranja","Mandarina","Uva"],
+      consejo:"", fuente:"Monash FODMAP" },
+    { nombre:"Mango", sinonimos:[], categoria:"Frutas",
+      nivel:"rojo", racion_segura:"Evitar en fase 1 (hasta ~¼ es el límite).",
+      fodmap:["Fructosa"], alternativas:["Papaya","Piña","Kiwi"],
+      consejo:"", fuente:"Monash FODMAP" },
+    { nombre:"Sandía", sinonimos:["sandia"], categoria:"Frutas",
+      nivel:"rojo", racion_segura:"Evitar en fase 1.",
+      fodmap:["Fructosa","Fructanos","Manitol"], alternativas:["Melón cantalupo","Uva","Fresas"],
+      consejo:"Es de las frutas con más combinación de FODMAPs.",
+      fuente:"Monash FODMAP" },
+    { nombre:"Cerezas", sinonimos:["cereza"], categoria:"Frutas",
+      nivel:"rojo", racion_segura:"Evitar en fase 1 (límite ~3 cerezas).",
+      fodmap:["Fructosa","Sorbitol"], alternativas:["Fresas","Uva","Arándanos"],
+      consejo:"", fuente:"Monash FODMAP" },
+    { nombre:"Ciruela", sinonimos:["ciruelas","ciruela pasa"], categoria:"Frutas",
+      nivel:"rojo", racion_segura:"Evitar en fase 1. La ciruela pasa es especialmente alta.",
+      fodmap:["Sorbitol"], alternativas:["Uva","Naranja","Kiwi"],
+      consejo:"", fuente:"Monash FODMAP" },
+    { nombre:"Melocotón", sinonimos:["durazno","nectarina"], categoria:"Frutas",
+      nivel:"rojo", racion_segura:"Evitar en fase 1.",
+      fodmap:["Sorbitol","Fructanos"], alternativas:["Naranja","Fresas","Kiwi"],
+      consejo:"", fuente:"Monash FODMAP" },
+    { nombre:"Albaricoque", sinonimos:["damasco","chabacano"], categoria:"Frutas",
+      nivel:"rojo", racion_segura:"Evitar en fase 1.",
+      fodmap:["Sorbitol"], alternativas:["Naranja","Mandarina","Uva"],
+      consejo:"", fuente:"Monash FODMAP" },
+    { nombre:"Aguacate", sinonimos:["palta"], categoria:"Frutas",
+      nivel:"amarillo", racion_segura:"Hasta ~⅛ de la pieza (30 g). Más cantidad es alto en sorbitol.",
+      fodmap:["Sorbitol"], alternativas:["Aceite de oliva","Hummus de calabacín","Tahini (poco)"],
+      consejo:"", fuente:"Monash FODMAP" },
+    { nombre:"Plátano", sinonimos:["banana","platano","banano"], categoria:"Frutas",
+      nivel:"verde", racion_segura:"Plátano firme/no muy maduro: ~1 mediano. Muy maduro: limita a ~⅓.",
+      fodmap:[], alternativas:[], consejo:"Al madurar acumula fructanos: cuanto más verde/firme, mejor.",
+      fuente:"Monash FODMAP" },
+    { nombre:"Arándanos", sinonimos:["arandanos","blueberries"], categoria:"Frutas",
+      nivel:"verde", racion_segura:"Hasta ~1 puñado (~25 g / 20 unidades).",
+      fodmap:[], alternativas:[], consejo:"", fuente:"Monash FODMAP" },
+    { nombre:"Fresas", sinonimos:["fresa","frutillas"], categoria:"Frutas",
+      nivel:"verde", racion_segura:"Hasta ~10 fresas medianas.",
+      fodmap:[], alternativas:[], consejo:"", fuente:"Monash FODMAP" },
+    { nombre:"Kiwi", sinonimos:["kiwis"], categoria:"Frutas",
+      nivel:"verde", racion_segura:"Hasta ~2 kiwis pequeños.",
+      fodmap:[], alternativas:[], consejo:"Buen aporte de vitamina C y ayuda al tránsito.",
+      fuente:"Monash FODMAP" },
+    { nombre:"Naranja", sinonimos:["naranjas"], categoria:"Frutas",
+      nivel:"verde", racion_segura:"~1 naranja mediana.",
+      fodmap:[], alternativas:[], consejo:"", fuente:"Monash FODMAP" },
+    { nombre:"Mandarina", sinonimos:["mandarinas","clementina"], categoria:"Frutas",
+      nivel:"verde", racion_segura:"Hasta ~2 mandarinas.",
+      fodmap:[], alternativas:[], consejo:"", fuente:"Monash FODMAP" },
+    { nombre:"Uva", sinonimos:["uvas"], categoria:"Frutas",
+      nivel:"verde", racion_segura:"Hasta ~1 taza (~150 g).",
+      fodmap:[], alternativas:[], consejo:"", fuente:"Monash FODMAP" },
+    { nombre:"Piña", sinonimos:["piña natural","ananá","ananas"], categoria:"Frutas",
+      nivel:"verde", racion_segura:"Hasta ~1 taza (140 g) fresca.",
+      fodmap:[], alternativas:[], consejo:"", fuente:"Monash FODMAP" },
+    { nombre:"Papaya", sinonimos:["papaya","lechosa"], categoria:"Frutas",
+      nivel:"verde", racion_segura:"Hasta ~1 taza.",
+      fodmap:[], alternativas:[], consejo:"", fuente:"Monash FODMAP" },
+    { nombre:"Melón cantalupo", sinonimos:["melon","melón"], categoria:"Frutas",
+      nivel:"verde", racion_segura:"Cantalupo hasta ~½ taza (90 g). En más cantidad sube el oligo/fructano.",
+      fodmap:[], alternativas:[], consejo:"El melón verde (honeydew) es más alto: mejor cantalupo.",
+      fuente:"Monash FODMAP" },
+    { nombre:"Limón", sinonimos:["lima","limones"], categoria:"Frutas",
+      nivel:"verde", racion_segura:"Zumo de ~1 pieza, sin problema como aderezo.",
+      fodmap:[], alternativas:[], consejo:"Sustituye al vinagre cuando quieras acidez.",
+      fuente:"Monash FODMAP" },
+    { nombre:"Frambuesa", sinonimos:["frambuesas"], categoria:"Frutas",
+      nivel:"verde", racion_segura:"Hasta ~30 frambuesas (60 g).",
+      fodmap:[], alternativas:[], consejo:"", fuente:"Monash FODMAP" },
+
+    /* ---------- LÁCTEOS ---------- */
+    { nombre:"Leche de vaca", sinonimos:["leche entera","leche desnatada","leche semidesnatada"], categoria:"Lácteos",
+      nivel:"rojo", racion_segura:"Evitar en fase 1.",
+      fodmap:["Lactosa"], alternativas:["Leche sin lactosa","Bebida de almendras","Bebida de avena (ración)"],
+      consejo:"La leche sin lactosa tiene los mismos nutrientes pero con la lactosa ya digerida.",
+      fuente:"Monash FODMAP / Cleveland Clinic" },
+    { nombre:"Yogur natural", sinonimos:["yogur","yogures"], categoria:"Lácteos",
+      nivel:"rojo", racion_segura:"Evitar el normal en fase 1.",
+      fodmap:["Lactosa"], alternativas:["Yogur sin lactosa","Yogur de coco","Yogur de almendras"],
+      consejo:"", fuente:"Monash FODMAP" },
+    { nombre:"Queso fresco", sinonimos:["requesón","ricotta","queso de Burgos","cottage"], categoria:"Lácteos",
+      nivel:"rojo", racion_segura:"Evitar en fase 1.",
+      fodmap:["Lactosa"], alternativas:["Queso curado","Mozzarella (ración)","Feta (ración)"],
+      consejo:"Cuanto más fresco el queso, más lactosa; cuanto más curado, menos.",
+      fuente:"Monash FODMAP" },
+    { nombre:"Nata / crema", sinonimos:["nata","crema de leche","crème fraîche"], categoria:"Lácteos",
+      nivel:"rojo", racion_segura:"Evitar en fase 1.",
+      fodmap:["Lactosa"], alternativas:["Nata sin lactosa","Crema de coco","Leche de coco (ración)"],
+      consejo:"", fuente:"Monash FODMAP" },
+    { nombre:"Leche sin lactosa", sinonimos:["leche deslactosada"], categoria:"Lácteos",
+      nivel:"verde", racion_segura:"Sin límite práctico.",
+      fodmap:[], alternativas:[], consejo:"Tu sustituto directo de la leche normal.",
+      fuente:"Monash FODMAP" },
+    { nombre:"Bebida de almendras", sinonimos:["leche de almendras"], categoria:"Lácteos",
+      nivel:"verde", racion_segura:"Hasta ~1 taza (250 ml).",
+      fodmap:[], alternativas:[], consejo:"Elige la versión sin azúcares añadidos.",
+      fuente:"Monash FODMAP" },
+    { nombre:"Queso curado", sinonimos:["manchego curado","cheddar","parmesano","grana padano"], categoria:"Lácteos",
+      nivel:"verde", racion_segura:"Los curados tienen muy poca lactosa: ración normal segura.",
+      fodmap:[], alternativas:[], consejo:"Cheddar, parmesano y manchego curado son seguros.",
+      fuente:"Monash FODMAP" },
+    { nombre:"Mozzarella", sinonimos:["queso mozzarella"], categoria:"Lácteos",
+      nivel:"verde", racion_segura:"Hasta ~½ taza (rallada). En grandes cantidades sube la lactosa.",
+      fodmap:[], alternativas:[], consejo:"", fuente:"Monash FODMAP" },
+    { nombre:"Mantequilla", sinonimos:["manteca"], categoria:"Lácteos",
+      nivel:"verde", racion_segura:"Muy baja en lactosa: ración normal segura.",
+      fodmap:[], alternativas:[], consejo:"", fuente:"Monash FODMAP" },
+    { nombre:"Queso brie / camembert", sinonimos:["brie","camembert"], categoria:"Lácteos",
+      nivel:"verde", racion_segura:"Hasta ~2 cucharadas / ~40 g.",
+      fodmap:[], alternativas:[], consejo:"", fuente:"Monash FODMAP" },
+    { nombre:"Helado de leche", sinonimos:["helado"], categoria:"Lácteos",
+      nivel:"rojo", racion_segura:"Evitar el de leche en fase 1.",
+      fodmap:["Lactosa"], alternativas:["Sorbete de frutas seguras","Helado sin lactosa","Polo de fruta casero"],
+      consejo:"", fuente:"Monash FODMAP" },
+
+    /* ---------- CEREALES Y PAN ---------- */
+    { nombre:"Pan de trigo", sinonimos:["pan blanco","pan integral","pan de molde"], categoria:"Cereales y pan",
+      nivel:"rojo", racion_segura:"Evitar en fase 1.",
+      fodmap:["Fructanos"], alternativas:["Pan sin gluten","Pan de masa madre de espelta","Tortita de arroz/maíz"],
+      consejo:"El problema es el fructano del trigo, no el gluten en sí.",
+      fuente:"Monash FODMAP" },
+    { nombre:"Pasta de trigo", sinonimos:["pasta","macarrones","espaguetis"], categoria:"Cereales y pan",
+      nivel:"rojo", racion_segura:"Evitar la de trigo en fase 1.",
+      fodmap:["Fructanos"], alternativas:["Pasta sin gluten","Pasta de arroz","Pasta de maíz"],
+      consejo:"Una ración muy pequeña (~½ taza cocida) puede tolerarse, pero mejor evitar al inicio.",
+      fuente:"Monash FODMAP" },
+    { nombre:"Cuscús", sinonimos:["couscous","cuscus"], categoria:"Cereales y pan",
+      nivel:"rojo", racion_segura:"Evitar en fase 1 (es trigo).",
+      fodmap:["Fructanos"], alternativas:["Quinoa","Arroz","Trigo sarraceno"],
+      consejo:"", fuente:"Monash FODMAP" },
+    { nombre:"Centeno", sinonimos:["pan de centeno"], categoria:"Cereales y pan",
+      nivel:"rojo", racion_segura:"Evitar en fase 1.",
+      fodmap:["Fructanos"], alternativas:["Pan sin gluten","Tortita de arroz","Pan de masa madre de espelta"],
+      consejo:"", fuente:"Monash FODMAP" },
+    { nombre:"Cebada", sinonimos:["cebada perlada"], categoria:"Cereales y pan",
+      nivel:"rojo", racion_segura:"Evitar en fase 1.",
+      fodmap:["Fructanos","GOS"], alternativas:["Arroz","Quinoa","Avena (ración)"],
+      consejo:"", fuente:"Monash FODMAP" },
+    { nombre:"Arroz", sinonimos:["arroz blanco","arroz integral","arroz basmati"], categoria:"Cereales y pan",
+      nivel:"verde", racion_segura:"Sin límite práctico. Base segura ideal.",
+      fodmap:[], alternativas:[], consejo:"Blanco, integral o basmati: todos seguros.",
+      fuente:"Monash FODMAP" },
+    { nombre:"Avena", sinonimos:["copos de avena","porridge"], categoria:"Cereales y pan",
+      nivel:"verde", racion_segura:"Hasta ~½ taza seca (porridge normal).",
+      fodmap:[], alternativas:[], consejo:"Cuidado con muesli/granola que llevan trigo, miel o frutos altos.",
+      fuente:"Monash FODMAP" },
+    { nombre:"Quinoa", sinonimos:["quinua"], categoria:"Cereales y pan",
+      nivel:"verde", racion_segura:"Hasta ~1 taza cocida.",
+      fodmap:[], alternativas:[], consejo:"", fuente:"Monash FODMAP" },
+    { nombre:"Maíz / polenta", sinonimos:["polenta","harina de maíz","sémola de maíz"], categoria:"Cereales y pan",
+      nivel:"verde", racion_segura:"Polenta hasta ~1 taza cocida.",
+      fodmap:[], alternativas:[], consejo:"", fuente:"Monash FODMAP" },
+    { nombre:"Pan sin gluten", sinonimos:["pan sin trigo","pan SG"], categoria:"Cereales y pan",
+      nivel:"verde", racion_segura:"~2 rebanadas. Revisa que no lleve inulina ni miel.",
+      fodmap:[], alternativas:[], consejo:"Lee la etiqueta: algunos llevan inulina/achicoria (fructanos).",
+      fuente:"Monash FODMAP" },
+    { nombre:"Pasta sin gluten", sinonimos:["pasta de arroz","pasta de maíz"], categoria:"Cereales y pan",
+      nivel:"verde", racion_segura:"Hasta ~1 taza cocida.",
+      fodmap:[], alternativas:[], consejo:"", fuente:"Monash FODMAP" },
+    { nombre:"Tortita de arroz/maíz", sinonimos:["tortitas de arroz","tortitas de maíz","galleta de arroz"], categoria:"Cereales y pan",
+      nivel:"verde", racion_segura:"~2 tortitas.",
+      fodmap:[], alternativas:[], consejo:"", fuente:"Monash FODMAP" },
+    { nombre:"Trigo sarraceno", sinonimos:["alforfón","sarraceno"], categoria:"Cereales y pan",
+      nivel:"verde", racion_segura:"Hasta ~1 taza cocido (a pesar del nombre, no es trigo).",
+      fodmap:[], alternativas:[], consejo:"", fuente:"Monash FODMAP" },
+
+    /* ---------- PROTEÍNAS ---------- */
+    { nombre:"Pollo", sinonimos:["pechuga de pollo","muslo de pollo"], categoria:"Proteínas",
+      nivel:"verde", racion_segura:"Sin límite práctico (carne sin procesar).",
+      fodmap:[], alternativas:[], consejo:"Ojo con adobos/marinados comerciales: suelen llevar ajo y cebolla.",
+      fuente:"Monash FODMAP" },
+    { nombre:"Pavo", sinonimos:["pechuga de pavo"], categoria:"Proteínas",
+      nivel:"verde", racion_segura:"Sin límite práctico (natural).",
+      fodmap:[], alternativas:[], consejo:"El fiambre de pavo puede llevar aditivos con FODMAPs; mejor natural.",
+      fuente:"Monash FODMAP" },
+    { nombre:"Ternera", sinonimos:["carne de vaca","filete de ternera"], categoria:"Proteínas",
+      nivel:"verde", racion_segura:"Sin límite práctico (carne sin procesar).",
+      fodmap:[], alternativas:[], consejo:"", fuente:"Monash FODMAP" },
+    { nombre:"Cerdo", sinonimos:["lomo de cerdo","carne de cerdo"], categoria:"Proteínas",
+      nivel:"verde", racion_segura:"Sin límite práctico (natural).",
+      fodmap:[], alternativas:[], consejo:"Embutidos como chorizo/salchichas suelen llevar ajo: revisa.",
+      fuente:"Monash FODMAP" },
+    { nombre:"Huevo", sinonimos:["huevos","clara","yema"], categoria:"Proteínas",
+      nivel:"verde", racion_segura:"Sin límite práctico.",
+      fodmap:[], alternativas:[], consejo:"Gran base segura: cocido, en tortilla o revuelto.",
+      fuente:"Monash FODMAP" },
+    { nombre:"Pescado blanco", sinonimos:["merluza","bacalao","lenguado","dorada"], categoria:"Proteínas",
+      nivel:"verde", racion_segura:"Sin límite práctico (fresco).",
+      fodmap:[], alternativas:[], consejo:"", fuente:"Monash FODMAP" },
+    { nombre:"Salmón", sinonimos:["salmon"], categoria:"Proteínas",
+      nivel:"verde", racion_segura:"Sin límite práctico (fresco/ahumado natural).",
+      fodmap:[], alternativas:[], consejo:"", fuente:"Monash FODMAP" },
+    { nombre:"Atún", sinonimos:["atun","bonito"], categoria:"Proteínas",
+      nivel:"verde", racion_segura:"Fresco o en lata al natural/aceite.",
+      fodmap:[], alternativas:[], consejo:"Evita las latas en salsa que lleven cebolla/ajo.",
+      fuente:"Monash FODMAP" },
+    { nombre:"Gambas", sinonimos:["gamba","langostinos","camarones"], categoria:"Proteínas",
+      nivel:"verde", racion_segura:"Sin límite práctico (frescas).",
+      fodmap:[], alternativas:[], consejo:"", fuente:"Monash FODMAP" },
+    { nombre:"Tofu firme", sinonimos:["tofu"], categoria:"Proteínas",
+      nivel:"verde", racion_segura:"Tofu firme escurrido hasta ~⅔ taza (160 g).",
+      fodmap:[], alternativas:[], consejo:"El tofu firme es seguro; el tofu sedoso (silken) es alto en GOS.",
+      fuente:"Monash FODMAP" },
+    { nombre:"Tempeh", sinonimos:[], categoria:"Proteínas",
+      nivel:"verde", racion_segura:"Hasta ~100 g.",
+      fodmap:[], alternativas:[], consejo:"La fermentación reduce sus FODMAPs.",
+      fuente:"Monash FODMAP" },
+
+    /* ---------- LEGUMBRES ---------- */
+    { nombre:"Garbanzos", sinonimos:["garbanzo"], categoria:"Legumbres",
+      nivel:"amarillo", racion_segura:"De bote, escurridos y enjuagados: hasta ~¼ taza (42 g). Secos cocidos: evitar.",
+      fodmap:["GOS"], alternativas:["Tofu firme","Tempeh","Hummus en poca cantidad"],
+      consejo:"Enjuagar bien los de bote arrastra parte del GOS al agua. La ración importa mucho.",
+      fuente:"Monash FODMAP" },
+    { nombre:"Lentejas", sinonimos:["lenteja"], categoria:"Legumbres",
+      nivel:"amarillo", racion_segura:"De bote, escurridas: hasta ~¼ taza (46 g). Secas cocidas: evitar.",
+      fodmap:["GOS"], alternativas:["Tofu firme","Lentejas de bote en poca cantidad","Quinoa"],
+      consejo:"Las enlatadas y enjuagadas tienen menos GOS que las cocidas en seco.",
+      fuente:"Monash FODMAP" },
+    { nombre:"Alubias rojas", sinonimos:["judías rojas","frijoles","porotos","kidney beans"], categoria:"Legumbres",
+      nivel:"rojo", racion_segura:"Evitar en fase 1.",
+      fodmap:["GOS","Fructanos"], alternativas:["Tofu firme","Garbanzos de bote (¼ taza)","Tempeh"],
+      consejo:"", fuente:"Monash FODMAP" },
+    { nombre:"Soja en grano", sinonimos:["soja","habas de soja","edamame"], categoria:"Legumbres",
+      nivel:"rojo", racion_segura:"Las habas de soja/edamame son altas: evitar en fase 1.",
+      fodmap:["GOS"], alternativas:["Tofu firme","Tempeh","Edamame en muy poca cantidad"],
+      consejo:"Curiosamente el tofu firme sí es seguro (se elimina el líquido rico en GOS).",
+      fuente:"Monash FODMAP" },
+    { nombre:"Alubias blancas", sinonimos:["judías blancas","alubia","fabes"], categoria:"Legumbres",
+      nivel:"rojo", racion_segura:"Evitar en fase 1.",
+      fodmap:["GOS","Fructanos"], alternativas:["Tofu firme","Garbanzos de bote (¼ taza)","Lenteja de bote (¼ taza)"],
+      consejo:"", fuente:"Monash FODMAP" },
+    { nombre:"Hummus", sinonimos:["humus"], categoria:"Legumbres",
+      nivel:"amarillo", racion_segura:"Hasta ~2 cucharadas (40 g). Más cantidad es alto en GOS/fructanos.",
+      fodmap:["GOS","Fructanos"], alternativas:["Tahini","Paté de berenjena (sin ajo)","Aguacate (⅛)"],
+      consejo:"Muchos hummus comerciales llevan ajo: revisa la etiqueta.",
+      fuente:"Monash FODMAP" },
+
+    /* ---------- FRUTOS SECOS Y SEMILLAS ---------- */
+    { nombre:"Anacardos", sinonimos:["castañas de cajú","nuez de la india"], categoria:"Frutos secos y semillas",
+      nivel:"rojo", racion_segura:"Evitar en fase 1.",
+      fodmap:["GOS","Fructanos"], alternativas:["Nueces","Cacahuetes","Nueces de macadamia"],
+      consejo:"", fuente:"Monash FODMAP" },
+    { nombre:"Pistachos", sinonimos:["pistacho"], categoria:"Frutos secos y semillas",
+      nivel:"rojo", racion_segura:"Evitar en fase 1.",
+      fodmap:["Fructanos","GOS"], alternativas:["Nueces","Cacahuetes","Pipas de calabaza"],
+      consejo:"", fuente:"Monash FODMAP" },
+    { nombre:"Almendras", sinonimos:["almendra"], categoria:"Frutos secos y semillas",
+      nivel:"amarillo", racion_segura:"Hasta ~10 almendras (12 g). Más cantidad sube en GOS.",
+      fodmap:["GOS"], alternativas:["Nueces","Cacahuetes","Pipas de calabaza"],
+      consejo:"", fuente:"Monash FODMAP" },
+    { nombre:"Nueces", sinonimos:["nuez"], categoria:"Frutos secos y semillas",
+      nivel:"verde", racion_segura:"Hasta ~10 mitades (30 g).",
+      fodmap:[], alternativas:[], consejo:"", fuente:"Monash FODMAP" },
+    { nombre:"Nueces de macadamia", sinonimos:["macadamia","macadamias"], categoria:"Frutos secos y semillas",
+      nivel:"verde", racion_segura:"Hasta ~20 unidades (40 g).",
+      fodmap:[], alternativas:[], consejo:"", fuente:"Monash FODMAP" },
+    { nombre:"Cacahuetes", sinonimos:["cacahuete","maní"], categoria:"Frutos secos y semillas",
+      nivel:"verde", racion_segura:"Hasta ~32 unidades (28 g).",
+      fodmap:[], alternativas:[], consejo:"La crema de cacahuete 100% también es segura en ración normal.",
+      fuente:"Monash FODMAP" },
+    { nombre:"Pipas de calabaza", sinonimos:["semillas de calabaza"], categoria:"Frutos secos y semillas",
+      nivel:"verde", racion_segura:"Hasta ~2 cucharadas (23 g).",
+      fodmap:[], alternativas:[], consejo:"", fuente:"Monash FODMAP" },
+    { nombre:"Semillas de chía", sinonimos:["chía","chia"], categoria:"Frutos secos y semillas",
+      nivel:"verde", racion_segura:"Hasta ~2 cucharadas (24 g).",
+      fodmap:[], alternativas:[], consejo:"Ayudan al tránsito; introduce la fibra poco a poco.",
+      fuente:"Monash FODMAP" },
+    { nombre:"Semillas de girasol", sinonimos:["pipas de girasol"], categoria:"Frutos secos y semillas",
+      nivel:"verde", racion_segura:"Hasta ~2 cucharadas.",
+      fodmap:[], alternativas:[], consejo:"", fuente:"Monash FODMAP" },
+
+    /* ---------- BEBIDAS ---------- */
+    { nombre:"Agua", sinonimos:["agua mineral","agua con gas"], categoria:"Bebidas",
+      nivel:"verde", racion_segura:"Sin límite.",
+      fodmap:[], alternativas:[], consejo:"La mejor opción siempre.",
+      fuente:"General" },
+    { nombre:"Café", sinonimos:["cafe","café solo","espresso"], categoria:"Bebidas",
+      nivel:"verde", racion_segura:"Café solo o con leche sin lactosa/almendras, ~1-2 tazas.",
+      fodmap:[], alternativas:[], consejo:"El problema suele ser la leche, no el café. La cafeína puede irritar el intestino en algunas personas.",
+      fuente:"Monash FODMAP" },
+    { nombre:"Té negro / verde", sinonimos:["té","te","té verde","té negro"], categoria:"Bebidas",
+      nivel:"verde", racion_segura:"Flojo, ~1 taza. El té muy cargado o chai puede ser más alto.",
+      fodmap:[], alternativas:[], consejo:"Evita las infusiones de manzanilla e hinojo (fructanos).",
+      fuente:"Monash FODMAP" },
+    { nombre:"Infusión de menta", sinonimos:["menta poleo","té de menta","hierbabuena"], categoria:"Bebidas",
+      nivel:"verde", racion_segura:"Bien tolerada.",
+      fodmap:[], alternativas:[], consejo:"La menta puede ayudar con los espasmos intestinales.",
+      fuente:"Monash FODMAP" },
+    { nombre:"Zumo de naranja", sinonimos:["zumo naranja","jugo de naranja"], categoria:"Bebidas",
+      nivel:"amarillo", racion_segura:"Hasta ~½ vaso (125 ml). Mejor la fruta entera.",
+      fodmap:["Fructosa"], alternativas:["Naranja entera","Agua con limón","Agua"],
+      consejo:"", fuente:"Monash FODMAP" },
+    { nombre:"Zumo de manzana", sinonimos:["zumo manzana","jugo de manzana"], categoria:"Bebidas",
+      nivel:"rojo", racion_segura:"Evitar en fase 1.",
+      fodmap:["Fructosa"], alternativas:["Agua con limón","Zumo de naranja (½ vaso)","Agua"],
+      consejo:"", fuente:"Monash FODMAP" },
+    { nombre:"Refresco de cola", sinonimos:["cola","refresco","bebida azucarada"], categoria:"Bebidas",
+      nivel:"amarillo", racion_segura:"La cola normal puede tolerarse en poca cantidad; evita los que llevan sirope de maíz (HFCS).",
+      fodmap:["Fructosa"], alternativas:["Agua con gas","Agua con limón","Infusión fría segura"],
+      consejo:"Lee la etiqueta: 'jarabe de maíz de alta fructosa' = alto en fructosa. El gas además hincha.",
+      fuente:"Monash FODMAP" },
+    { nombre:"Vino", sinonimos:["vino tinto","vino blanco"], categoria:"Bebidas",
+      nivel:"amarillo", racion_segura:"~1 copa (150 ml) es baja en FODMAP. El alcohol irrita el intestino.",
+      fodmap:["Fructosa"], alternativas:["Agua con gas","Sin alcohol"],
+      consejo:"El vino de postre/dulce es alto. El alcohol en sí puede empeorar el SII.",
+      fuente:"Monash FODMAP" },
+    { nombre:"Cerveza", sinonimos:["birra","caña"], categoria:"Bebidas",
+      nivel:"amarillo", racion_segura:"~1 cerveza (375 ml) es baja en FODMAP, pero el alcohol y el gas pueden sentar mal.",
+      fodmap:["Fructanos"], alternativas:["Agua con gas","Sin alcohol"],
+      consejo:"", fuente:"Monash FODMAP" },
+    { nombre:"Bebida de avena", sinonimos:["leche de avena"], categoria:"Bebidas",
+      nivel:"amarillo", racion_segura:"Hasta ~½ vaso (125 ml). Más cantidad sube en fructanos/GOS.",
+      fodmap:["Fructanos","GOS"], alternativas:["Bebida de almendras","Leche sin lactosa","Bebida de arroz"],
+      consejo:"", fuente:"Monash FODMAP" },
+
+    /* ---------- CONDIMENTOS Y OTROS ---------- */
+    { nombre:"Aceite de oliva", sinonimos:["aceite","AOVE","aceite de oliva virgen"], categoria:"Condimentos y otros",
+      nivel:"verde", racion_segura:"Sin límite práctico. No contiene FODMAPs.",
+      fodmap:[], alternativas:[], consejo:"Ideal para infusionar ajo/cebolla y dar sabor sin FODMAPs.",
+      fuente:"Monash FODMAP" },
+    { nombre:"Sal", sinonimos:["sal marina"], categoria:"Condimentos y otros",
+      nivel:"verde", racion_segura:"Sin FODMAPs (con moderación por salud general).",
+      fodmap:[], alternativas:[], consejo:"", fuente:"General" },
+    { nombre:"Pimienta y especias", sinonimos:["pimienta","comino","pimentón","cúrcuma","orégano","tomillo"], categoria:"Condimentos y otros",
+      nivel:"verde", racion_segura:"Especias puras: seguras. Evita mezclas con ajo/cebolla en polvo.",
+      fodmap:[], alternativas:[], consejo:"Lee los 'mix de especias': muchos llevan ajo y cebolla.",
+      fuente:"Monash FODMAP" },
+    { nombre:"Vinagre", sinonimos:["vinagre de vino","vinagre de manzana"], categoria:"Condimentos y otros",
+      nivel:"verde", racion_segura:"Hasta ~2 cucharadas. El balsámico, hasta ~1 cucharada.",
+      fodmap:[], alternativas:[], consejo:"", fuente:"Monash FODMAP" },
+    { nombre:"Mostaza", sinonimos:[], categoria:"Condimentos y otros",
+      nivel:"verde", racion_segura:"Hasta ~1 cucharada.",
+      fodmap:[], alternativas:[], consejo:"", fuente:"Monash FODMAP" },
+    { nombre:"Salsa de soja", sinonimos:["soja salsa","tamari"], categoria:"Condimentos y otros",
+      nivel:"verde", racion_segura:"Hasta ~2 cucharadas.",
+      fodmap:[], alternativas:[], consejo:"", fuente:"Monash FODMAP" },
+    { nombre:"Miel", sinonimos:[], categoria:"Condimentos y otros",
+      nivel:"rojo", racion_segura:"Evitar en fase 1.",
+      fodmap:["Fructosa"], alternativas:["Sirope de arce","Azúcar de mesa","Stevia"],
+      consejo:"El sirope de arce puro es la mejor alternativa para endulzar.",
+      fuente:"Monash FODMAP" },
+    { nombre:"Sirope de agave", sinonimos:["agave","néctar de agave"], categoria:"Condimentos y otros",
+      nivel:"rojo", racion_segura:"Evitar en fase 1.",
+      fodmap:["Fructosa"], alternativas:["Sirope de arce","Azúcar de mesa"],
+      consejo:"", fuente:"Monash FODMAP" },
+    { nombre:"Ketchup", sinonimos:["catchup","kétchup"], categoria:"Condimentos y otros",
+      nivel:"amarillo", racion_segura:"Hasta ~1 sobre (5 g). Muchos llevan cebolla/ajo o HFCS.",
+      fodmap:["Fructosa","Fructanos"], alternativas:["Tomate triturado natural (poco)","Mostaza","Mayonesa sin ajo"],
+      consejo:"Revisa la etiqueta: si lleva cebolla, ajo o sirope de maíz, evítalo.",
+      fuente:"Monash FODMAP" },
+    { nombre:"Caldo / pastilla", sinonimos:["caldo de pollo","cubito","pastilla de caldo","fondo"], categoria:"Condimentos y otros",
+      nivel:"rojo", racion_segura:"Los comerciales casi siempre llevan cebolla y ajo: evitar.",
+      fodmap:["Fructanos"], alternativas:["Caldo casero sin cebolla/ajo","Caldo certificado bajo en FODMAP","Agua con hierbas"],
+      consejo:"Haz caldo casero con zanahoria, apio (poco), hierbas y parte verde de puerro.",
+      fuente:"Monash FODMAP" },
+    { nombre:"Mayonesa", sinonimos:["mahonesa"], categoria:"Condimentos y otros",
+      nivel:"verde", racion_segura:"La mayonesa sin ajo es segura en ración normal.",
+      fodmap:[], alternativas:[], consejo:"Evita el alioli (lleva ajo).",
+      fuente:"Monash FODMAP" },
+
+    /* ---------- DULCES Y SNACKS ---------- */
+    { nombre:"Chocolate negro", sinonimos:["chocolate puro","cacao"], categoria:"Dulces y snacks",
+      nivel:"verde", racion_segura:"Hasta ~30 g (5 cuadraditos).",
+      fodmap:[], alternativas:[], consejo:"Cuanto más puro, mejor; el negro es el más seguro.",
+      fuente:"Monash FODMAP" },
+    { nombre:"Chocolate con leche", sinonimos:["chocolate"], categoria:"Dulces y snacks",
+      nivel:"amarillo", racion_segura:"Hasta ~20-30 g. Más cantidad aporta lactosa.",
+      fodmap:["Lactosa"], alternativas:["Chocolate negro","Chocolate sin lactosa"],
+      consejo:"", fuente:"Monash FODMAP" },
+    { nombre:"Azúcar de mesa", sinonimos:["azúcar","sacarosa","azúcar blanco"], categoria:"Dulces y snacks",
+      nivel:"verde", racion_segura:"En cantidad moderada es bajo en FODMAP (es sacarosa).",
+      fodmap:[], alternativas:[], consejo:"Endulzante seguro en cantidades normales.",
+      fuente:"Monash FODMAP" },
+    { nombre:"Sirope de arce", sinonimos:["jarabe de arce","maple"], categoria:"Dulces y snacks",
+      nivel:"verde", racion_segura:"Hasta ~2 cucharadas.",
+      fodmap:[], alternativas:[], consejo:"La mejor alternativa a la miel.",
+      fuente:"Monash FODMAP" },
+    { nombre:"Chicles / caramelos sin azúcar", sinonimos:["chicle sin azúcar","caramelo sin azúcar","mentos sin azúcar"], categoria:"Dulces y snacks",
+      nivel:"rojo", racion_segura:"Evitar: los edulcorantes 'sin azúcar' son polioles.",
+      fodmap:["Sorbitol","Manitol"], alternativas:["Caramelos con azúcar normal","Chocolate negro"],
+      consejo:"Busca en la etiqueta sorbitol, manitol, xilitol, maltitol, isomalt (terminan en -ol).",
+      fuente:"Monash FODMAP" },
+    { nombre:"Fruta deshidratada", sinonimos:["pasas","orejones","dátiles","higos secos"], categoria:"Dulces y snacks",
+      nivel:"rojo", racion_segura:"Evitar en fase 1: concentra los azúcares.",
+      fodmap:["Fructosa","Fructanos"], alternativas:["Fruta fresca segura (uva, fresas)","Plátano firme","Arándanos"],
+      consejo:"", fuente:"Monash FODMAP" },
+    { nombre:"Productos con inulina", sinonimos:["inulina","fibra de achicoria","raíz de achicoria","FOS"], categoria:"Dulces y snacks",
+      nivel:"rojo", racion_segura:"Evitar: la inulina/achicoria es fructano puro añadido a muchos 'productos fibra/keto/proteína'.",
+      fodmap:["Fructanos"], alternativas:["Snacks sin inulina","Tortitas de arroz","Frutos secos seguros"],
+      consejo:"Muy común en barritas, yogures 'extra fibra' y helados proteicos. Lee siempre la etiqueta.",
+      fuente:"Monash FODMAP" },
+    { nombre:"Patatas fritas de bolsa", sinonimos:["chips","patatas chips"], categoria:"Dulces y snacks",
+      nivel:"amarillo", racion_segura:"Las saladas naturales: ración pequeña. Las de sabores suelen llevar cebolla/ajo en polvo.",
+      fodmap:["Fructanos"], alternativas:["Patatas chips solo con sal","Tortitas de maíz","Palomitas (ración)"],
+      consejo:"Sabores tipo 'barbacoa', 'jamón' o 'cebolla' = evitar.",
+      fuente:"Monash FODMAP" },
+    { nombre:"Palomitas", sinonimos:["popcorn","maíz para palomitas"], categoria:"Dulces y snacks",
+      nivel:"verde", racion_segura:"Hasta ~7 tazas hechas (sin mantequilla excesiva ni saborizantes).",
+      fodmap:[], alternativas:[], consejo:"Caseras con poco aceite y sal.",
+      fuente:"Monash FODMAP" }
+  ];
+
+  /* ============================================================
+     UTILIDADES PURAS
+     ============================================================ */
+  var NIVELES = ["verde", "amarillo", "rojo"];
+  var FODMAPS_VALIDOS = ["Fructosa","Lactosa","Manitol","Sorbitol","GOS","Fructanos"];
+
+  function normalizar(texto) {
+    if (typeof texto !== "string") return "";
+    return texto
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "") // quita diacríticos (tildes)
+      .toLowerCase()
+      .trim();
+  }
+
+  function validarAlimento(a) {
+    var errores = [];
+    if (!a || typeof a !== "object") return ["no es un objeto"];
+    if (!a.nombre || typeof a.nombre !== "string") errores.push("nombre ausente");
+    if (NIVELES.indexOf(a.nivel) === -1) errores.push("nivel inválido: " + a.nivel);
+    if (typeof a.categoria !== "string" || !a.categoria) errores.push("categoria ausente");
+    if (!Array.isArray(a.sinonimos)) errores.push("sinonimos debe ser array");
+    if (!Array.isArray(a.fodmap)) errores.push("fodmap debe ser array");
+    if (!Array.isArray(a.alternativas)) errores.push("alternativas debe ser array");
+    if (typeof a.racion_segura !== "string" || !a.racion_segura) errores.push("racion_segura ausente");
+    if (typeof a.consejo !== "string") errores.push("consejo debe ser texto");
+    if (!a.fuente) errores.push("fuente ausente (trazabilidad)");
+    if ((a.nivel === "rojo" || a.nivel === "amarillo") &&
+        Array.isArray(a.fodmap) && a.fodmap.length === 0) {
+      errores.push("nivel " + a.nivel + " sin FODMAP declarado");
+    }
+    if (Array.isArray(a.fodmap)) {
+      a.fodmap.forEach(function (f) {
+        if (FODMAPS_VALIDOS.indexOf(f) === -1) errores.push("FODMAP desconocido: " + f);
+      });
+    }
+    return errores;
+  }
+
+  function buscar(texto, lista, categoria, soloSeguros) {
+    var q = normalizar(texto);
+    return lista.filter(function (a) {
+      if (categoria && a.categoria !== categoria) return false;
+      if (soloSeguros && a.nivel !== "verde") return false;
+      if (!q) return true;
+      if (normalizar(a.nombre).indexOf(q) !== -1) return true;
+      return (a.sinonimos || []).some(function (s) {
+        return normalizar(s).indexOf(q) !== -1;
+      });
+    });
+  }
+
+  /* ============================================================
+     RENDER / UI
+     ============================================================ */
+  function emojiNivel(n) {
+    return n === "verde" ? "🟢" : n === "amarillo" ? "🟡" : n === "rojo" ? "🔴" : "⚪";
+  }
+  function textoNivel(n) {
+    return n === "verde" ? "Puedes comerlo"
+         : n === "amarillo" ? "Con cuidado: depende de la cantidad"
+         : n === "rojo" ? "Evítalo en fase 1" : "Sin datos";
+  }
+  function escapeHTML(s) {
+    return String(s)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+
+  var estado = { texto: "", categoria: null, soloSeguros: false };
+
+  function tarjetaHTML(a) {
+    return '<button class="card nivel-' + a.nivel + '" data-nombre="' +
+      escapeHTML(a.nombre) + '">' +
+      '<span class="emoji">' + emojiNivel(a.nivel) + '</span>' +
+      '<span class="card-nombre">' + escapeHTML(a.nombre) + '</span>' +
+      '<span class="card-cat">' + escapeHTML(a.categoria) + '</span></button>';
+  }
+
+  function fichaHTML(a) {
+    var fod = a.fodmap.length
+      ? '<div class="bloque"><h4>FODMAP responsable</h4><p>' +
+        a.fodmap.map(function (f) { return '<span class="pill">' + escapeHTML(f) + '</span>'; }).join("") +
+        "</p></div>" : "";
+    var alts = a.alternativas.length
+      ? '<div class="bloque"><h4>Alternativas seguras</h4><ul>' +
+        a.alternativas.map(function (x) { return "<li>" + escapeHTML(x) + "</li>"; }).join("") +
+        "</ul></div>" : "";
+    var cons = a.consejo
+      ? '<div class="bloque"><h4>Consejo</h4><p>' + escapeHTML(a.consejo) + "</p></div>" : "";
+    return '<div class="ficha nivel-' + a.nivel + '">' +
+      '<button class="volver" data-volver="1">‹ Volver a la búsqueda</button>' +
+      '<div class="ficha-cab"><div class="emoji-grande">' + emojiNivel(a.nivel) + '</div>' +
+      '<h2>' + escapeHTML(a.nombre) + '</h2>' +
+      '<p class="veredicto nivel-' + a.nivel + '">' + textoNivel(a.nivel) + '</p>' +
+      '<p class="ficha-cat">' + escapeHTML(a.categoria) + '</p></div>' +
+      '<div class="bloque"><h4>Ración orientativa</h4><p>' + escapeHTML(a.racion_segura) + '</p></div>' +
+      fod + alts + cons +
+      '<p class="fuente">Fuente: ' + escapeHTML(a.fuente) +
+      '. Información orientativa; no sustituye a tu dietista.</p></div>';
+  }
+
+  function render() {
+    var app = document.getElementById("app");
+    if (!app) return;
+    var resultados = buscar(estado.texto, DATOS, estado.categoria, estado.soloSeguros);
+    var chips = CATEGORIAS.map(function (c) {
+      return '<button class="chip' + (estado.categoria === c ? " activo" : "") +
+        '" data-cat="' + escapeHTML(c) + '">' + escapeHTML(c) + "</button>";
+    }).join("");
+    var lista = resultados.length
+      ? '<div class="grid">' + resultados.map(tarjetaHTML).join("") + "</div>"
+      : '<p class="vacio">No se ha encontrado nada.<br>Prueba con otro nombre o revisa por categoría.</p>';
+    app.innerHTML =
+      '<header><h1>🍽️ ¿Puedo comerlo?</h1>' +
+      '<p class="aviso">Guía orientativa para el SII (dieta baja en FODMAP, fase 1). ' +
+      'No sustituye el consejo de tu dietista. Las cantidades dependen de cada persona.</p></header>' +
+      '<input id="q" type="search" inputmode="search" placeholder="Busca un alimento… (ej. cebolla)" ' +
+      'value="' + escapeHTML(estado.texto) + '" autocomplete="off" autocapitalize="off">' +
+      '<label class="seguros"><input type="checkbox" id="soloSeguros"' +
+      (estado.soloSeguros ? " checked" : "") + '> Mostrar solo seguros 🟢</label>' +
+      '<div class="chips"><button class="chip' + (estado.categoria === null ? " activo" : "") +
+      '" data-cat="">Todas</button>' + chips + "</div>" +
+      '<p class="conteo">' + resultados.length + ' alimento' + (resultados.length === 1 ? "" : "s") + '</p>' +
+      '<div id="contenido">' + lista + "</div>" +
+      '<footer>Datos curados de fuentes públicas (Monash FODMAP y otras). ' +
+      'Revisa siempre la etiqueta de los productos procesados.</footer>';
+    enlazarEventos();
+  }
+
+  function mostrarFicha(nombre) {
+    var a = DATOS.filter(function (x) { return x.nombre === nombre; })[0];
+    if (!a) return;
+    var cont = document.getElementById("contenido");
+    if (!cont) return;
+    cont.innerHTML = fichaHTML(a);
+    var v = document.querySelector("[data-volver]");
+    if (v) v.addEventListener("click", function () {
+      render();
+      window.scrollTo(0, 0);
+    });
+    window.scrollTo(0, 0);
+  }
+
+  function enlazarEventos() {
+    var q = document.getElementById("q");
+    if (q) q.addEventListener("input", function (e) {
+      estado.texto = e.target.value;
+      render();
+      enfocarBusqueda();
+    });
+    var s = document.getElementById("soloSeguros");
+    if (s) s.addEventListener("change", function (e) {
+      estado.soloSeguros = e.target.checked;
+      render();
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-cat]"), function (b) {
+      b.addEventListener("click", function () {
+        estado.categoria = b.getAttribute("data-cat") || null;
+        render();
+      });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-nombre]"), function (b) {
+      b.addEventListener("click", function () {
+        mostrarFicha(b.getAttribute("data-nombre"));
+      });
+    });
+  }
+
+  function enfocarBusqueda() {
+    var q = document.getElementById("q");
+    if (q) {
+      var v = q.value;
+      q.focus();
+      try { q.setSelectionRange(v.length, v.length); } catch (e) {}
+    }
+  }
+
+  /* ============================================================
+     MOTOR DE TESTS  (se ejecuta solo con ?test)
+     ============================================================ */
+  function runTests() {
+    var results = [];
+    function assert(cond, msg) { results.push({ ok: !!cond, msg: msg }); }
+    try {
+      registerTests(assert);
+    } catch (e) {
+      results.push({ ok: false, msg: "Excepción en tests: " + e.message });
+    }
+    var passed = results.filter(function (r) { return r.ok; }).length;
+    var failed = results.length - passed;
+    var out = document.getElementById("test-output");
+    out.hidden = false;
+    document.getElementById("app").hidden = true;
+    out.innerHTML =
+      "<h2>" + passed + " ✓ / " + failed + " ✗</h2>" +
+      results.map(function (r) {
+        return '<div style="color:' + (r.ok ? "green" : "#c62828") + '">' +
+          (r.ok ? "✓ " : "✗ ") + escapeHTML(r.msg) + "</div>";
+      }).join("");
+    results.forEach(function (r) {
+      if (!r.ok) console.error("TEST FAIL:", r.msg);
+    });
+    console.log("Tests: " + passed + " ✓ / " + failed + " ✗");
+    return { passed: passed, failed: failed };
+  }
+
+  function registerTests(assert) {
+    // Motor
+    assert(true, "el motor de tests funciona");
+
+    // normalizar()
+    assert(normalizar("Plátano") === "platano", "normalizar quita tildes y minúsculas");
+    assert(normalizar("  CEBOLLA  ") === "cebolla", "normalizar recorta espacios");
+    assert(normalizar("Limón") === "limon", "normalizar ó->o");
+    assert(normalizar("") === "", "normalizar cadena vacía");
+    assert(normalizar(null) === "", "normalizar null no rompe");
+
+    // validarAlimento()
+    var ej = { nombre:"Cebolla", sinonimos:["cebolleta"], categoria:"Verduras",
+      nivel:"rojo", racion_segura:"Evitar.", fodmap:["Fructanos"],
+      alternativas:["Cebollino"], consejo:"x", fuente:"Monash" };
+    assert(validarAlimento(ej).length === 0, "alimento bien formado no da errores");
+    assert(validarAlimento({ nombre:"X", categoria:"Verduras", nivel:"morado" }).length > 0, "nivel inválido se detecta");
+    var verde = { nombre:"Arroz", sinonimos:[], categoria:"Cereales y pan", nivel:"verde",
+      racion_segura:"Sin límite.", fodmap:[], alternativas:[], consejo:"", fuente:"Monash" };
+    assert(validarAlimento(verde).length === 0, "verde con fodmap vacío es válido");
+    assert(validarAlimento({ nombre:"Ajo", nivel:"rojo", categoria:"Verduras", sinonimos:[],
+      racion_segura:"Evitar", fodmap:[], alternativas:[], consejo:"", fuente:"Monash" }).length > 0,
+      "rojo sin FODMAP declarado se detecta como incoherencia");
+
+    // buscar()
+    var lista = [ej, verde];
+    assert(buscar("cebolla", lista, null, false).length === 1, "buscar por nombre");
+    assert(buscar("cebolleta", lista, null, false).length === 1, "buscar por sinónimo");
+    assert(buscar("CEBOLLA", lista, null, false).length === 1, "buscar ignora mayúsculas");
+    assert(buscar("", lista, "Verduras", false).length === 1, "filtra por categoría");
+    assert(buscar("", lista, null, true).length === 1, "filtro solo seguros deja solo verdes");
+    assert(buscar("nohaytal", lista, null, false).length === 0, "sin resultados devuelve []");
+
+    // Helpers de render
+    assert(emojiNivel("verde") === "🟢", "emoji verde");
+    assert(emojiNivel("amarillo") === "🟡", "emoji amarillo");
+    assert(emojiNivel("rojo") === "🔴", "emoji rojo");
+    assert(normalizar(textoNivel("rojo")).indexOf("evita") !== -1, "texto rojo dice evitar");
+    assert(escapeHTML("<b>&") === "&lt;b&gt;&amp;", "escapeHTML evita inyección");
+
+    // Integridad global de DATOS
+    assert(DATOS.length >= 80, "hay al menos 80 alimentos (hay " + DATOS.length + ")");
+    var erroresDatos = [];
+    DATOS.forEach(function (a) {
+      var e = validarAlimento(a);
+      if (e.length) erroresDatos.push((a && a.nombre) + ": " + e.join(", "));
+    });
+    assert(erroresDatos.length === 0, "todos los alimentos son válidos" +
+      (erroresDatos.length ? " — ERRORES: " + erroresDatos.join(" | ") : ""));
+
+    var nombres = DATOS.map(function (a) { return normalizar(a.nombre); });
+    var setN = {}; var dup = [];
+    nombres.forEach(function (n) { if (setN[n]) dup.push(n); setN[n] = true; });
+    assert(dup.length === 0, "no hay nombres duplicados" + (dup.length ? " — " + dup.join(", ") : ""));
+
+    var catMalas = [];
+    DATOS.forEach(function (a) {
+      if (CATEGORIAS.indexOf(a.categoria) === -1) catMalas.push(a.nombre + " → " + a.categoria);
+    });
+    assert(catMalas.length === 0, "todas las categorías son válidas" +
+      (catMalas.length ? " — " + catMalas.join(", ") : ""));
+
+    // Búsquedas reales de extremo a extremo
+    assert(buscar("cebolla", DATOS, null, false).length >= 1, "encuentra cebolla en DATOS");
+    assert(buscar("platano", DATOS, null, false).length >= 1, "encuentra plátano sin tilde");
+    assert(buscar("pan", DATOS, null, false).length >= 2, "encuentra varios panes");
+    assert(buscar("leche", DATOS, null, false).length >= 2, "encuentra leches");
+  }
+
+  /* ============================================================
+     ARRANQUE
+     ============================================================ */
+  function init() {
+    if (location.search.indexOf("test") !== -1) {
+      runTests();
+      return;
+    }
+    render();
+  }
+
+  document.addEventListener("DOMContentLoaded", init);
+  </script>
+</body>
+</html>
