@@ -1209,6 +1209,34 @@
     return { nivel: "verde", nota: "Según tu tolerancia." };
   }
 
+  // Lee el diario de Fase 2 de un grupo y devuelve el pico de síntomas por dosis.
+  function resumenFase2PorGrupo(id) {
+    var p = (almacen.cargar().retos || {})[id];
+    if (!p) return null;
+    return {
+      alimento: p.alimentoElegido,
+      dias: p.dias.map(function (d) {
+        return {
+          etiqueta: d.etiqueta,
+          dosis: d.dosis,
+          guardado: d.guardado,
+          pico: Math.max(d.dolor || 0, d.hinchazon || 0, d.gases || 0)
+        };
+      })
+    };
+  }
+
+  // Sugerencia (NO veredicto) de hasta qué dosis llegó sin síntomas altos (pico < 4).
+  function sugerirLimiteDosis(id) {
+    var r = resumenFase2PorGrupo(id);
+    if (!r) return 1;
+    var sug = 0;
+    r.dias.forEach(function (d, i) {
+      if (d.guardado && d.pico < 4) sug = i + 1;
+    });
+    return sug || 1;
+  }
+
   /* ============================================================
      FASE 2 · RENDER / UI
      ============================================================ */
@@ -1707,6 +1735,21 @@
     var tomate = { nombre: "Tomate", nivel: "amarillo", fodmap: ["Fructosa"] };
     assert(nivelPersonalizado(tomate, { "fructosa": { estado: "tolera" } }).nivel === "verde", "amarillo->verde si tolera su único FODMAP");
     assert(nivelPersonalizado(tomate, { "fructosa": { estado: "limite" } }) === null, "amarillo con límite no cambia (ya es amarillo)");
+
+    // ---- FASE 3: resumen de Fase 2 + sugerencia de dosis ----
+    almacen._mem = { version: 1, retos: {} };
+    almacenF3._mem = { version: 1, tolerancias: {}, verSegunTolerancia: false };
+    assert(resumenFase2PorGrupo("fructosa") === null, "resumenFase2PorGrupo sin diario devuelve null");
+    iniciarReto("fructosa", "Miel", "2026-06-01");
+    guardarDia("fructosa", 0, { dolor: 1, hinchazon: 2, gases: 0, notas: "" });
+    guardarDia("fructosa", 1, { dolor: 6, hinchazon: 3, gases: 1, notas: "" });
+    var rs = resumenFase2PorGrupo("fructosa");
+    assert(rs && rs.alimento === "Miel", "resumenFase2PorGrupo devuelve el alimento probado");
+    assert(rs.dias[0].pico === 2, "pico de la dosis 1 = máximo de los 3 síntomas");
+    assert(rs.dias[1].pico === 6, "pico de la dosis 2 = máximo (6)");
+    assert(sugerirLimiteDosis("fructosa") === 1, "sugiere la última dosis sin síntomas altos (dosis 1)");
+    reiniciarReto("fructosa");
+    assert(sugerirLimiteDosis("fructosa") === 1, "sin diario, la sugerencia por defecto es 1");
 
     almacenF3._mem = null;                    // dejar limpio
     almacen._mem = { version: 1, retos: {} }; // dejar limpio
