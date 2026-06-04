@@ -1237,6 +1237,41 @@
     return sug || 1;
   }
 
+  // Copia de seguridad unificada: Fase 2 + Fase 3 en un solo objeto.
+  function exportarTodo() {
+    return JSON.stringify({
+      app: "sii-fodmap",
+      fase2: almacen.cargar(),
+      fase3: almacenF3.cargar()
+    }, null, 2);
+  }
+
+  // Importa el formato nuevo {app, fase2, fase3} o el antiguo {version, retos}.
+  // Devuelve true si aplicó algo; false si el JSON no es reconocible (no pisa nada).
+  function importarTodo(json) {
+    var p;
+    try { p = JSON.parse(json); } catch (e) { return false; }
+    if (!p || typeof p !== "object") return false;
+    // Formato nuevo
+    if (p.fase2 && typeof p.fase2 === "object" && p.fase2.retos && typeof p.fase2.retos === "object") {
+      almacen.guardar({ version: p.fase2.version || 1, retos: p.fase2.retos });
+      if (p.fase3 && typeof p.fase3 === "object" && p.fase3.tolerancias && typeof p.fase3.tolerancias === "object") {
+        almacenF3.guardar({
+          version: p.fase3.version || 1,
+          tolerancias: p.fase3.tolerancias,
+          verSegunTolerancia: !!p.fase3.verSegunTolerancia
+        });
+      }
+      return true;
+    }
+    // Formato antiguo (solo Fase 2): no toca Fase 3
+    if (p.retos && typeof p.retos === "object") {
+      almacen.guardar({ version: p.version || 1, retos: p.retos });
+      return true;
+    }
+    return false;
+  }
+
   /* ============================================================
      FASE 2 · RENDER / UI
      ============================================================ */
@@ -1262,7 +1297,7 @@
       if (!f) return;
       var fr = new FileReader();
       fr.onload = function () {
-        if (almacen.importar(fr.result)) { alert("Copia importada correctamente."); renderFase2(); }
+        if (importarTodo(fr.result)) { alert("Copia importada correctamente."); renderApp(); }
         else alert("El archivo no es una copia válida. No se ha cambiado nada.");
       };
       fr.readAsText(f);
@@ -1274,7 +1309,7 @@
     Array.prototype.forEach.call(v.querySelectorAll("[data-accion]"), function (b) {
       b.addEventListener("click", function () {
         var a = b.getAttribute("data-accion");
-        if (a === "exportar") descargar("diario-fodmap.json", almacen.exportar());
+        if (a === "exportar") descargar("diario-fodmap.json", exportarTodo());
         else if (a === "importar") pedirImportar();
         else if (a === "resumen") { estadoFase2.resumen = true; renderFase2(); window.scrollTo(0, 0); }
       });
@@ -1750,6 +1785,29 @@
     assert(sugerirLimiteDosis("fructosa") === 1, "sugiere la última dosis sin síntomas altos (dosis 1)");
     reiniciarReto("fructosa");
     assert(sugerirLimiteDosis("fructosa") === 1, "sin diario, la sugerencia por defecto es 1");
+
+    // ---- FASE 3: copia de seguridad unificada ----
+    almacen._mem = { version: 1, retos: {} };
+    almacenF3._mem = { version: 1, tolerancias: {}, verSegunTolerancia: false };
+    iniciarReto("lactosa", "Leche normal", "2026-06-01");
+    setTolerancia("lactosa", "tolera", null);
+    var copia = exportarTodo();
+    almacen._mem = { version: 1, retos: {} };
+    almacenF3._mem = { version: 1, tolerancias: {}, verSegunTolerancia: false };
+    assert(importarTodo(copia) === true, "importarTodo (formato nuevo) funciona");
+    assert(progresoDe("lactosa") && progresoDe("lactosa").alimentoElegido === "Leche normal", "importarTodo restaura Fase 2");
+    assert(toleranciaDe("lactosa").estado === "tolera", "importarTodo restaura Fase 3");
+    // formato antiguo: solo Fase 2 "pelado" ({version, retos})
+    almacen._mem = { version: 1, retos: {} };
+    almacenF3._mem = { version: 1, tolerancias: { "manitol": { estado: "no" } }, verSegunTolerancia: false };
+    var viejo = JSON.stringify({ version: 1, retos: { "gos": { alimentoElegido: "Garbanzos de bote", personalizado: false, fechaInicio: "2026-06-01", dias: [] } } });
+    assert(importarTodo(viejo) === true, "importarTodo acepta copia antigua (solo Fase 2)");
+    assert(progresoDe("gos") && progresoDe("gos").alimentoElegido === "Garbanzos de bote", "copia antigua restaura Fase 2");
+    assert(toleranciaDe("manitol").estado === "no", "copia antigua NO pisa las tolerancias de Fase 3");
+    assert(importarTodo("{ no es json") === false, "importarTodo con JSON inválido devuelve false");
+    assert(importarTodo('{"foo":1}') === false, "importarTodo sin secciones reconocibles devuelve false");
+    almacen._mem = { version: 1, retos: {} };
+    almacenF3._mem = { version: 1, tolerancias: {}, verSegunTolerancia: false };
 
     almacenF3._mem = null;                    // dejar limpio
     almacen._mem = { version: 1, retos: {} }; // dejar limpio
