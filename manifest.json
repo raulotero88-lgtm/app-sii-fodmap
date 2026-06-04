@@ -4,8 +4,8 @@
   "description": "Buscador de alimentos y guía de reintroducción FODMAP",
   "start_url": "./",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#2ecc71",
+  "background_color": "#FAF7F2",
+  "theme_color": "#2F8F6B",
   "lang": "es",
   "icons": [
     { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
