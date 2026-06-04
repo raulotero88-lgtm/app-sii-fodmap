@@ -40,6 +40,18 @@ El diario se **guarda solo** en el móvil (sin internet ni cuentas). Usa **Expor
 para hacer una copia de seguridad o pasarla a otro dispositivo, e **Importar copia** para
 restaurarla. La app **registra, no diagnostica**: la tolerancia la interpretas con tu dietista.
 
+## 🌱 Fase 3 — Personalización
+
+La pestaña **Personalización** resume tu diario de Fase 2 (los picos de síntomas por dosis) y
+te deja marcar, por cada grupo FODMAP, si lo toleras: *Sin probar / Tolero / Tolero con límite /
+No tolero*. **Tú marcas la tolerancia; la app no diagnostica.**
+
+Con eso, en el **Buscador** aparece el interruptor **"🌱 Ver según mi tolerancia"**: al activarlo,
+los alimentos que solo estaban limitados por un FODMAP que ahora toleras cambian de color (con la
+nota "antes 🔴"). La ficha de cada alimento **mantiene siempre** su clasificación oficial, y al
+desactivar el interruptor vuelve todo a la vista de partida. La copia de seguridad
+(Exportar/Importar) incluye también esta información.
+
 ## Instalar en el móvil (icono en la pantalla de inicio)
 
 1. Abre la URL en el navegador del móvil.
@@ -65,4 +77,4 @@ Ante cualquier duda, consulta con un profesional.
 ## Tests
 
 Abre la URL + `?test` en el navegador para ejecutar la batería de auto-tests
-(valida los datos y la lógica de búsqueda). Debe mostrar "59 ✓ / 0 ✗".
+(valida los datos y la lógica de búsqueda). Debe mostrar "102 ✓ / 0 ✗".
