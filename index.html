@@ -1173,6 +1173,42 @@
     });
   }
 
+  // Severidad: tolera (mejor) < limite < no/sin_probar (peor)
+  function rangoEstado(e) {
+    return e === "tolera" ? 0 : e === "limite" ? 1 : 2;
+  }
+  function peorEstado(a, b) {
+    return rangoEstado(a) >= rangoEstado(b) ? a : b;
+  }
+
+  // Estado fase3 ("sin_probar"|"tolera"|"limite"|"no") de un FODMAP de alimento.
+  // "Fructanos" toma el más restrictivo de trigo y verdura.
+  function estadoFodmap(fodmapNombre, tolerancias) {
+    function est(id) { return (tolerancias[id] && tolerancias[id].estado) || "sin_probar"; }
+    if (fodmapNombre === "Fructanos") {
+      return peorEstado(est("fructanos-trigo"), est("fructanos-verdura"));
+    }
+    var mapa = { "Fructosa": "fructosa", "Lactosa": "lactosa", "Sorbitol": "sorbitol",
+                 "Manitol": "manitol", "GOS": "gos" };
+    return est(mapa[fodmapNombre] || "");
+  }
+
+  // Nivel personalizado de un alimento dado el mapa de tolerancias.
+  // Devuelve { nivel, nota } o null si el alimento NO cambia.
+  function nivelPersonalizado(alimento, tolerancias) {
+    if (!alimento || !Array.isArray(alimento.fodmap) || alimento.fodmap.length === 0) return null;
+    var estados = alimento.fodmap.map(function (f) { return estadoFodmap(f, tolerancias); });
+    var hayBloqueante = estados.some(function (e) { return e !== "tolera" && e !== "limite"; });
+    if (hayBloqueante) return null;                 // algún FODMAP no tolerado o sin probar
+    var hayLimite = estados.some(function (e) { return e === "limite"; });
+    if (hayLimite) {
+      if (alimento.nivel === "amarillo") return null; // ya es amarillo, no aporta
+      return { nivel: "amarillo", nota: "Según tu tolerancia, con moderación." };
+    }
+    if (alimento.nivel === "verde") return null;      // ya es verde
+    return { nivel: "verde", nota: "Según tu tolerancia." };
+  }
+
   /* ============================================================
      FASE 2 · RENDER / UI
      ============================================================ */
@@ -1640,6 +1676,37 @@
     assert(almacenF3.cargar().verSegunTolerancia === true, "setVerSegunTolerancia persiste el toggle");
     almacenF3._mem = { version: 1, tolerancias: {}, verSegunTolerancia: false };
     assert(hayAlgunaTolerancia() === false, "sin tolerancias, hayAlgunaTolerancia es false");
+
+    // ---- FASE 3: lógica de re-coloreado (pura) ----
+    assert(peorEstado("tolera", "limite") === "limite", "peorEstado: limite peor que tolera");
+    assert(peorEstado("limite", "no") === "no", "peorEstado: no peor que limite");
+    assert(peorEstado("tolera", "tolera") === "tolera", "peorEstado: dos tolera = tolera");
+    var tolA = { "fructosa": { estado: "tolera" } };
+    assert(estadoFodmap("Fructosa", tolA) === "tolera", "estadoFodmap mapea Fructosa->fructosa");
+    var tolFr = { "fructanos-trigo": { estado: "tolera" }, "fructanos-verdura": { estado: "limite" } };
+    assert(estadoFodmap("Fructanos", tolFr) === "limite", "estadoFodmap Fructanos usa el más restrictivo");
+    assert(estadoFodmap("Fructanos", {}) === "sin_probar", "estadoFodmap Fructanos sin datos = sin_probar");
+
+    var cebolla = { nombre: "Cebolla", nivel: "rojo", fodmap: ["Fructanos"] };
+    assert(nivelPersonalizado(cebolla, {}) === null, "sin tolerancia no se re-colorea");
+    assert(nivelPersonalizado(cebolla, { "fructanos-trigo": { estado: "tolera" }, "fructanos-verdura": { estado: "tolera" } }).nivel === "verde",
+      "cebolla->verde si tolera ambos fructanos");
+    assert(nivelPersonalizado(cebolla, { "fructanos-trigo": { estado: "tolera" }, "fructanos-verdura": { estado: "limite" } }).nivel === "amarillo",
+      "cebolla->amarillo si un fructano es 'con límite'");
+    assert(nivelPersonalizado(cebolla, { "fructanos-trigo": { estado: "tolera" } }) === null,
+      "cebolla no cambia si el otro fructano está sin probar");
+    var guisante = { nombre: "Guisantes", nivel: "rojo", fodmap: ["GOS", "Fructanos"] };
+    assert(nivelPersonalizado(guisante, { "gos": { estado: "tolera" }, "fructanos-trigo": { estado: "tolera" }, "fructanos-verdura": { estado: "tolera" } }).nivel === "verde",
+      "multi-FODMAP mejora solo si todos tolerados");
+    assert(nivelPersonalizado(guisante, { "gos": { estado: "tolera" } }) === null,
+      "multi-FODMAP no mejora si falta uno");
+    var arroz = { nombre: "Arroz", nivel: "verde", fodmap: [] };
+    assert(nivelPersonalizado(arroz, { "fructosa": { estado: "tolera" } }) === null, "alimento sin FODMAP no cambia");
+    var ciruela = { nombre: "Ciruela", nivel: "rojo", fodmap: [], motivo: "carga total" };
+    assert(nivelPersonalizado(ciruela, { "fructosa": { estado: "tolera" } }) === null, "alimento por 'motivo' (sin FODMAP) nunca cambia");
+    var tomate = { nombre: "Tomate", nivel: "amarillo", fodmap: ["Fructosa"] };
+    assert(nivelPersonalizado(tomate, { "fructosa": { estado: "tolera" } }).nivel === "verde", "amarillo->verde si tolera su único FODMAP");
+    assert(nivelPersonalizado(tomate, { "fructosa": { estado: "limite" } }) === null, "amarillo con límite no cambia (ya es amarillo)");
 
     almacenF3._mem = null;                    // dejar limpio
     almacen._mem = { version: 1, retos: {} }; // dejar limpio
