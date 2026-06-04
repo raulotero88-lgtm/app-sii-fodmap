@@ -77,4 +77,4 @@ Ante cualquier duda, consulta con un profesional.
 ## Tests
 
 Abre la URL + `?test` en el navegador para ejecutar la batería de auto-tests
-(valida los datos y la lógica de búsqueda). Debe mostrar "102 ✓ / 0 ✗".
+(valida los datos y la lógica de búsqueda). Debe mostrar "103 ✓ / 0 ✗".

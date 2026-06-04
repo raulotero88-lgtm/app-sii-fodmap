@@ -1198,7 +1198,7 @@
   function hayAlgunaTolerancia() {
     var t = almacenF3.cargar().tolerancias;
     return Object.keys(t).some(function (k) {
-      return t[k] && t[k].estado && t[k].estado !== "sin_probar";
+      return t[k] && (t[k].estado === "tolera" || t[k].estado === "limite");
     });
   }
 
@@ -1668,7 +1668,6 @@
         var lim = limSel ? Number(limSel.value) : null;
         setTolerancia(id, sel.value, lim);
         renderFase3();
-        window.scrollTo(0, 0);
       });
     });
     Array.prototype.forEach.call(v.querySelectorAll("[data-limite]"), function (sel) {
@@ -1867,6 +1866,9 @@
     assert(almacenF3.cargar().verSegunTolerancia === true, "setVerSegunTolerancia persiste el toggle");
     almacenF3._mem = { version: 1, tolerancias: {}, verSegunTolerancia: false };
     assert(hayAlgunaTolerancia() === false, "sin tolerancias, hayAlgunaTolerancia es false");
+    setTolerancia("manitol", "no", null);
+    assert(hayAlgunaTolerancia() === false, "solo 'No tolero' no activa el interruptor (nada que re-colorear)");
+    almacenF3._mem = { version: 1, tolerancias: {}, verSegunTolerancia: false };
 
     // ---- FASE 3: lógica de re-coloreado (pura) ----
     assert(peorEstado("tolera", "limite") === "limite", "peorEstado: limite peor que tolera");

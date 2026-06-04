@@ -12,7 +12,7 @@ navegador y funciona offline; las actualizaciones llegan automáticamente via ba
 
 - **Estado general:** ✅ funcional, en uso y publicada en GitHub Pages.
 - **URL:** [https://raulotero88-lgtm.github.io/app-sii-fodmap/](https://raulotero88-lgtm.github.io/app-sii-fodmap/)
-- **Tests:** 102 ✓ / 0 ✗ (abrir URL + `?test`).
+- **Tests:** 103 ✓ / 0 ✗ (abrir URL + `?test`).
 - **Alimentos en el buscador:** 131.
 - **Retos de reintroducción:** 7 grupos FODMAP.
 - **Datos:** revisados y contrastados con la guía clínica del usuario (AEG/SEEN vía NotebookLM) — criterio híbrido prudente. Ver `FUENTES.md`.
@@ -59,7 +59,7 @@ navegador y funciona offline; las actualizaciones llegan automáticamente via ba
 | 2026-05-31 | Fase 2: alimento personalizado + catálogo ampliado (59 tests) |
 | 2026-05-31 | PWA: manifest, service worker, iconos, banner de actualización, GitHub Pages |
 | 2026-05-31 | Verificación clínica de los 130 datos vs NotebookLM (AEG/SEEN); correcciones con criterio híbrido prudente, campo "Motivo del límite", +Edamame (131), aviso de stacking. SW v4 |
-| 2026-06-04 | Fase 3: panel de personalización + Buscador personalizado (interruptor de tolerancia). Copia de seguridad unificada. 102 tests. SW v6 |
+| 2026-06-04 | Fase 3: panel de personalización + Buscador personalizado (interruptor de tolerancia). Copia de seguridad unificada. 103 tests. SW v6 |
 
 ## Backlog / ideas futuras (sin empezar)
 
@@ -71,7 +71,7 @@ navegador y funciona offline; las actualizaciones llegan automáticamente via ba
 
 ## Cómo trabajar en el proyecto
 
-- **Verificar antes de dar por bueno:** abrir URL + `?test` → debe marcar `102 ✓ / 0 ✗`.
+- **Verificar antes de dar por bueno:** abrir URL + `?test` → debe marcar `103 ✓ / 0 ✗`.
 - **Publicar cambios:** editar `index.html` → `git commit` → `git push` → GitHub Pages actualiza en ~1 min → Laura ve el banner de actualización.
 - **Flujo:** brainstorming → spec (`docs/superpowers/specs/`) → plan (`docs/superpowers/plans/`) → implementar.
 - **Datos:** los alimentos están en `DATOS[]` y los retos en `RETOS[]` dentro del `<script>` de `index.html`.
