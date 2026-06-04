@@ -147,6 +147,16 @@
     .resumen-grupo table{width:100%;border-collapse:collapse;font-size:.85rem;margin-top:8px}
     .resumen-grupo th,.resumen-grupo td{border:1px solid var(--linea);padding:5px 6px;text-align:center}
     .resumen-grupo th{background:var(--sup-2);font-weight:600}
+    /* ---- Fase 3 (personalización) ---- */
+    .tol-card{border:1px solid var(--linea);border-radius:var(--radio);padding:14px;margin-bottom:12px;background:var(--sup);box-shadow:var(--sombra)}
+    .tol-card h3{margin:0 0 4px;font-size:1.05rem}
+    .tol-card label{display:block;font-size:.85rem;color:var(--gris);margin-top:6px}
+    .tol-picos{font-size:.78rem;color:var(--gris);margin:2px 0 6px}
+    .tol-picos .alto{color:var(--rojo);font-weight:700}
+    .tol-picos-ley{opacity:.8}
+    .tol-banner{font-size:.8rem;color:var(--verde);background:var(--verde-bg);border:1px solid var(--verde-borde);border-radius:10px;padding:8px 10px;margin:10px 0}
+    .card-antes{font-size:.72rem;color:var(--gris)}
+    @media(max-width:380px){.tab{font-size:.82rem;padding:10px 4px}}
   </style>
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
@@ -912,11 +922,13 @@
       '<div class="tabs">' +
       '<button class="tab' + (vistaActual === "buscador" ? " activo" : "") + '" data-tab="buscador">🔍 Buscador</button>' +
       '<button class="tab' + (vistaActual === "fase2" ? " activo" : "") + '" data-tab="fase2">🔄 Reintroducción</button>' +
+      '<button class="tab' + (vistaActual === "fase3" ? " activo" : "") + '" data-tab="fase3">🌱 Personalización</button>' +
       '</div><div id="vista"></div>';
     Array.prototype.forEach.call(app.querySelectorAll("[data-tab]"), function (b) {
       b.addEventListener("click", function () { navegar(b.getAttribute("data-tab")); });
     });
     if (vistaActual === "fase2") renderFase2();
+    else if (vistaActual === "fase3") renderFase3();
     else render();
   }
 
@@ -1548,6 +1560,88 @@
       '<p class="intro">Síntomas registrados por dosis (escala 0-10). La app no interpreta los resultados.</p>' +
       (bloques || '<p class="vacio">Aún no has registrado ningún grupo.</p>') +
       '<div class="btn-row"><button class="btn sec" data-accion="exportar">⬇️ Exportar copia</button></div>';
+    wireAcciones(v);
+  }
+
+  /* ============================================================
+     FASE 3 · RENDER (panel de personalización)
+     ============================================================ */
+  var ETIQUETAS_ESTADO = {
+    sin_probar: "Sin probar",
+    tolera: "Tolero",
+    limite: "Tolero con límite",
+    no: "No tolero"
+  };
+
+  function renderFase3() {
+    var v = document.getElementById("vista");
+    if (!v) return;
+    var tol = almacenF3.cargar().tolerancias;
+    var nTolera = 0;
+    RETOS.forEach(function (r) {
+      var e = (tol[r.id] || {}).estado;
+      if (e === "tolera" || e === "limite") nTolera++;
+    });
+
+    var cards = RETOS.map(function (r) {
+      var t = toleranciaDe(r.id);
+      var resumen = resumenFase2PorGrupo(r.id);
+      var picos = resumen
+        ? '<p class="tol-picos">Fase 2 · ' + escapeHTML(resumen.alimento) + ': ' +
+          resumen.dias.map(function (d) {
+            return d.etiqueta.replace("Dosis ", "D") + ' ' +
+              '<span class="' + (d.pico >= 4 ? "alto" : "") + '">' + d.pico + '</span>';
+          }).join(" · ") + ' <span class="tol-picos-ley">(pico 0-10)</span></p>'
+        : '<p class="tol-picos">Sin diario en Fase 2 (puedes marcarlo igualmente).</p>';
+
+      var opcs = ["sin_probar", "tolera", "limite", "no"].map(function (e) {
+        return '<option value="' + e + '"' + (t.estado === e ? " selected" : "") + '>' +
+          ETIQUETAS_ESTADO[e] + '</option>';
+      }).join("");
+
+      var sugerida = t.limiteDosis || sugerirLimiteDosis(r.id);
+      var limOpcs = [1, 2, 3].map(function (n) {
+        return '<option value="' + n + '"' + (sugerida === n ? " selected" : "") + '>Hasta la dosis ' + n + '</option>';
+      }).join("");
+      var limWrap = '<label class="tol-lim"' + (t.estado === "limite" ? "" : " hidden") +
+        ' data-limwrap="' + escapeHTML(r.id) + '">Cantidad que toleras' +
+        '<select class="alim" data-limite="' + escapeHTML(r.id) + '">' + limOpcs + '</select></label>';
+
+      return '<div class="tol-card"><h3>' + escapeHTML(r.grupo) + '</h3>' +
+        picos +
+        '<label>¿Lo toleras?' +
+        '<select class="alim" data-tol="' + escapeHTML(r.id) + '">' + opcs + '</select></label>' +
+        limWrap + '</div>';
+    }).join("");
+
+    v.innerHTML =
+      '<header><h1>🌱 Personalización</h1>' +
+      '<p class="aviso">Fase 3: marca qué toleras (lo decides tú con tu dietista a partir de tu diario de Fase 2). ' +
+      'La app <strong>no diagnostica</strong>: solo guarda lo que tú indicas.</p></header>' +
+      '<p class="intro">Toleras <strong>' + nTolera + ' de ' + RETOS.length + '</strong> grupos. ' +
+      'En el Buscador puedes activar "🌱 Ver según mi tolerancia".</p>' +
+      cards +
+      '<div class="btn-row">' +
+        '<button class="btn sec" data-accion="exportar">⬇️ Exportar copia</button>' +
+        '<button class="btn sec" data-accion="importar">⬆️ Importar copia</button>' +
+      '</div>' +
+      '<footer>Tú marcas la tolerancia; la app solo la registra. Coméntalo siempre con tu dietista.</footer>';
+
+    Array.prototype.forEach.call(v.querySelectorAll("[data-tol]"), function (sel) {
+      sel.addEventListener("change", function () {
+        var id = sel.getAttribute("data-tol");
+        var limSel = v.querySelector('[data-limite="' + id + '"]');
+        var lim = limSel ? Number(limSel.value) : null;
+        setTolerancia(id, sel.value, lim);
+        renderFase3();
+        window.scrollTo(0, 0);
+      });
+    });
+    Array.prototype.forEach.call(v.querySelectorAll("[data-limite]"), function (sel) {
+      sel.addEventListener("change", function () {
+        setTolerancia(sel.getAttribute("data-limite"), "limite", Number(sel.value));
+      });
+    });
     wireAcciones(v);
   }
 
