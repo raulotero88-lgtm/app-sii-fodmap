@@ -798,11 +798,14 @@
   var estado = { texto: "", categoria: null, soloSeguros: false };
 
   function tarjetaHTML(a) {
+    var antes = a._antes
+      ? '<span class="card-antes">antes ' + emojiNivel(a._antes) + '</span>' : "";
     return '<button class="card nivel-' + a.nivel + '" data-nombre="' +
       escapeHTML(a.nombre) + '">' +
       '<span class="emoji">' + emojiNivel(a.nivel) + '</span>' +
       '<span class="card-nombre">' + escapeHTML(a.nombre) + '</span>' +
-      '<span class="card-cat">' + escapeHTML(a.categoria) + '</span></button>';
+      '<span class="card-cat">' + escapeHTML(a.categoria) + '</span>' +
+      antes + '</button>';
   }
 
   function fichaHTML(a) {
@@ -834,7 +837,8 @@
   function render() {
     var app = document.getElementById("vista");
     if (!app) return;
-    var resultados = buscar(estado.texto, DATOS, estado.categoria, estado.soloSeguros);
+    var base = aplicarTolerancia(DATOS);
+    var resultados = buscar(estado.texto, base, estado.categoria, estado.soloSeguros);
     var chips = CATEGORIAS.map(function (c) {
       return '<button class="chip' + (estado.categoria === c ? " activo" : "") +
         '" data-cat="' + escapeHTML(c) + '">' + escapeHTML(c) + "</button>";
@@ -852,8 +856,16 @@
       'value="' + escapeHTML(estado.texto) + '" autocomplete="off" autocapitalize="off">' +
       '<label class="seguros"><input type="checkbox" id="soloSeguros"' +
       (estado.soloSeguros ? " checked" : "") + '> Mostrar solo seguros 🟢</label>' +
+      (hayAlgunaTolerancia()
+        ? '<label class="seguros"><input type="checkbox" id="verTol"' +
+          (almacenF3.cargar().verSegunTolerancia ? " checked" : "") +
+          '> 🌱 Ver según mi tolerancia</label>'
+        : '') +
       '<div class="chips"><button class="chip' + (estado.categoria === null ? " activo" : "") +
       '" data-cat="">Todas</button>' + chips + "</div>" +
+      (almacenF3.cargar().verSegunTolerancia
+        ? '<p class="tol-banner">🌱 Viendo según tu tolerancia. Cada ficha mantiene su clasificación oficial.</p>'
+        : '') +
       '<p class="conteo">' + resultados.length + ' alimento' + (resultados.length === 1 ? "" : "s") + '</p>' +
       '<div id="contenido">' + lista + "</div>" +
       '<footer>Datos contrastados con tu guía clínica (NotebookLM: AEG/SEEN) y con Monash FODMAP. ' +
@@ -886,6 +898,11 @@
     var s = document.getElementById("soloSeguros");
     if (s) s.addEventListener("change", function (e) {
       estado.soloSeguros = e.target.checked;
+      render();
+    });
+    var vt = document.getElementById("verTol");
+    if (vt) vt.addEventListener("change", function (e) {
+      setVerSegunTolerancia(e.target.checked);
       render();
     });
     Array.prototype.forEach.call(document.querySelectorAll("[data-cat]"), function (b) {
@@ -1282,6 +1299,23 @@
       return true;
     }
     return false;
+  }
+
+  // Capa de SOLO LECTURA sobre una lista de alimentos. Si el interruptor está activo,
+  // devuelve copias con el nivel personalizado y el nivel oficial en _antes. No muta los originales.
+  function aplicarTolerancia(lista) {
+    var cfg = almacenF3.cargar();
+    if (!cfg.verSegunTolerancia) return lista;
+    var tol = cfg.tolerancias;
+    return lista.map(function (a) {
+      var np = nivelPersonalizado(a, tol);
+      if (!np) return a;
+      var copia = {};
+      for (var k in a) { if (Object.prototype.hasOwnProperty.call(a, k)) copia[k] = a[k]; }
+      copia.nivel = np.nivel;
+      copia._antes = a.nivel;
+      return copia;
+    });
   }
 
   /* ============================================================
@@ -1903,6 +1937,16 @@
     almacen._mem = { version: 1, retos: {} };
     almacenF3._mem = { version: 1, tolerancias: {}, verSegunTolerancia: false };
 
+    // ---- FASE 3: aplicarTolerancia (capa sobre DATOS) ----
+    almacenF3._mem = { version: 1, tolerancias: {}, verSegunTolerancia: false };
+    var muestra = [{ nombre: "X", nivel: "rojo", fodmap: ["Fructosa"], categoria: "Frutas", sinonimos: [] }];
+    assert(aplicarTolerancia(muestra)[0].nivel === "rojo", "toggle off: no cambia los niveles");
+    almacenF3._mem = { version: 1, tolerancias: { "fructosa": { estado: "tolera" } }, verSegunTolerancia: true };
+    var ap = aplicarTolerancia(muestra);
+    assert(ap[0].nivel === "verde", "toggle on: re-colorea a verde");
+    assert(ap[0]._antes === "rojo", "toggle on: guarda el nivel oficial en _antes");
+    assert(muestra[0].nivel === "rojo", "aplicarTolerancia no muta el alimento original");
+    almacenF3._mem = { version: 1, tolerancias: {}, verSegunTolerancia: false };
     almacenF3._mem = null;                    // dejar limpio
     almacen._mem = { version: 1, retos: {} }; // dejar limpio
   }
