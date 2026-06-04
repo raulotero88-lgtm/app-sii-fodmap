@@ -1641,6 +1641,7 @@
     almacenF3._mem = { version: 1, tolerancias: {}, verSegunTolerancia: false };
     assert(hayAlgunaTolerancia() === false, "sin tolerancias, hayAlgunaTolerancia es false");
 
+    almacenF3._mem = null;                    // dejar limpio
     almacen._mem = { version: 1, retos: {} }; // dejar limpio
   }
 
