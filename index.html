@@ -1113,6 +1113,67 @@
   }
 
   /* ============================================================
+     FASE 3 · DATOS Y LÓGICA (personalización / tolerancias)
+     estado ∈ "sin_probar" | "tolera" | "limite" | "no"
+     ============================================================ */
+  var STORAGE_KEY_F3 = "sii_fodmap_fase3_v1";
+  var almacenF3 = {
+    _mem: null,
+    cargar: function () {
+      if (this._mem) return this._mem;
+      var base = { version: 1, tolerancias: {}, verSegunTolerancia: false };
+      try {
+        var raw = localStorage.getItem(STORAGE_KEY_F3);
+        if (raw) {
+          var p = JSON.parse(raw);
+          if (p && p.tolerancias && typeof p.tolerancias === "object") {
+            base = { version: p.version || 1, tolerancias: p.tolerancias,
+                     verSegunTolerancia: !!p.verSegunTolerancia };
+          }
+        }
+      } catch (e) {}
+      this._mem = base;
+      return base;
+    },
+    guardar: function (data) {
+      this._mem = data;
+      try { localStorage.setItem(STORAGE_KEY_F3, JSON.stringify(data)); return true; }
+      catch (e) { return false; }
+    }
+  };
+
+  function toleranciaDe(id) {
+    var t = almacenF3.cargar().tolerancias[id];
+    return t || { estado: "sin_probar", limiteDosis: null };
+  }
+
+  function setTolerancia(id, estado, limiteDosis) {
+    var data = almacenF3.cargar();
+    if (estado === "sin_probar") {
+      delete data.tolerancias[id];
+    } else {
+      data.tolerancias[id] = {
+        estado: estado,
+        limiteDosis: estado === "limite" ? (limiteDosis || 1) : null
+      };
+    }
+    almacenF3.guardar(data);
+  }
+
+  function setVerSegunTolerancia(v) {
+    var data = almacenF3.cargar();
+    data.verSegunTolerancia = !!v;
+    almacenF3.guardar(data);
+  }
+
+  function hayAlgunaTolerancia() {
+    var t = almacenF3.cargar().tolerancias;
+    return Object.keys(t).some(function (k) {
+      return t[k] && t[k].estado && t[k].estado !== "sin_probar";
+    });
+  }
+
+  /* ============================================================
      FASE 2 · RENDER / UI
      ============================================================ */
   var estadoFase2 = { retoAbierto: null, resumen: false };
@@ -1561,6 +1622,24 @@
     var avoc = RETOS.filter(function (r) { return r.id === "sorbitol"; })[0]
       .alimentos.filter(function (a) { return a.nombre === "Aguacate"; })[0];
     assert(avoc && avoc.nota && avoc.nota.length > 0, "el Aguacate lleva nota informativa (perseitol)");
+
+    // ---- FASE 3: persistencia ----
+    almacenF3._mem = null;
+    var f3 = almacenF3.cargar();
+    assert(f3 && f3.tolerancias && typeof f3.tolerancias === "object", "F3 cargar sin datos da estructura vacía válida");
+    assert(f3.verSegunTolerancia === false, "F3 verSegunTolerancia por defecto es false");
+    assert(toleranciaDe("fructosa").estado === "sin_probar", "tolerancia por defecto es sin_probar");
+    setTolerancia("fructosa", "tolera", null);
+    assert(toleranciaDe("fructosa").estado === "tolera", "setTolerancia guarda 'tolera'");
+    setTolerancia("lactosa", "limite", 2);
+    assert(toleranciaDe("lactosa").estado === "limite" && toleranciaDe("lactosa").limiteDosis === 2, "setTolerancia 'limite' guarda la dosis");
+    setTolerancia("lactosa", "sin_probar", null);
+    assert(toleranciaDe("lactosa").estado === "sin_probar", "marcar sin_probar borra la tolerancia");
+    assert(hayAlgunaTolerancia() === true, "hayAlgunaTolerancia detecta una tolerancia guardada");
+    setVerSegunTolerancia(true);
+    assert(almacenF3.cargar().verSegunTolerancia === true, "setVerSegunTolerancia persiste el toggle");
+    almacenF3._mem = { version: 1, tolerancias: {}, verSegunTolerancia: false };
+    assert(hayAlgunaTolerancia() === false, "sin tolerancias, hayAlgunaTolerancia es false");
 
     almacen._mem = { version: 1, retos: {} }; // dejar limpio
   }
