@@ -1360,6 +1360,16 @@
     });
   }
 
+  // Reintroducibles (rojo/amarillo, con FODMAP) primero; verdes al final. Estable por nombre.
+  function ordenarParaReintro(lista) {
+    function rango(a) { return (a.fodmap && a.fodmap.length) ? 0 : 1; }
+    return lista.slice().sort(function (a, b) {
+      var r = rango(a) - rango(b);
+      if (r !== 0) return r;
+      return normalizar(a.nombre) < normalizar(b.nombre) ? -1 : 1;
+    });
+  }
+
   function renderFase2() {
     var v = document.getElementById("vista");
     if (!v) return;
@@ -1855,6 +1865,15 @@
     assert(estadoPrueba("Cebolla") === "hecho", "con conclusión != sin -> hecho");
     reiniciarPrueba("Cebolla");
     assert(pruebaDe("Cebolla") === null, "reiniciarPrueba borra la prueba");
+
+    // ---- REINTRO: orden de la lista (reintroducibles primero) ----
+    var listaOrd = ordenarParaReintro([
+      { nombre:"Zanahoria", nivel:"verde", fodmap:[] },
+      { nombre:"Cebolla", nivel:"rojo", fodmap:["Fructanos"] },
+      { nombre:"Calabacin", nivel:"amarillo", fodmap:["Fructanos"] }
+    ]);
+    assert(listaOrd[0].nombre !== "Zanahoria", "los verdes no van primero");
+    assert(listaOrd[listaOrd.length - 1].nombre === "Zanahoria", "el verde queda al final");
 
     // ---- FASE 3: persistencia ----
     almacenF3._mem = null;
