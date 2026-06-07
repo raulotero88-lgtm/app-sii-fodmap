@@ -1164,40 +1164,37 @@
   function borrarManual(nombre) { var d = almacenF3.cargar(); if (d.manuales[nombre]) { delete d.manuales[nombre]; almacenF3.guardar(d); } }
   function setVerSegunTolerancia(on) { var d = almacenF3.cargar(); d.verSegunTolerancia = !!on; almacenF3.guardar(d); }
 
-  // Severidad: tolera (mejor) < limite < no/sin_probar (peor)
-  function rangoEstado(e) {
-    return e === "tolera" ? 0 : e === "limite" ? 1 : 2;
-  }
-  function peorEstado(a, b) {
-    return rangoEstado(a) >= rangoEstado(b) ? a : b;
-  }
-
-  // Estado fase3 ("sin_probar"|"tolera"|"limite"|"no") de un FODMAP de alimento.
-  // "Fructanos" toma el más restrictivo de trigo y verdura.
-  function estadoFodmap(fodmapNombre, tolerancias) {
-    function est(id) { return (tolerancias[id] && tolerancias[id].estado) || "sin_probar"; }
-    if (fodmapNombre === "Fructanos") {
-      return peorEstado(est("fructanos-trigo"), est("fructanos-verdura"));
-    }
-    var mapa = { "Fructosa": "fructosa", "Lactosa": "lactosa", "Sorbitol": "sorbitol",
-                 "Manitol": "manitol", "GOS": "gos" };
-    return est(mapa[fodmapNombre] || "");
+  // Une conclusiones de la reintroducción (mandan) + manuales. nombre -> "tolera"|"limite"|"no".
+  function mapaToleranciaPorAlimento() {
+    var mapa = {};
+    var man = almacenF3.cargar().manuales || {};
+    Object.keys(man).forEach(function (n) { if (man[n] && man[n].estado) mapa[n] = man[n].estado; });
+    var pr = almacen.cargar().pruebas || {};
+    Object.keys(pr).forEach(function (n) {
+      var c = pr[n].conclusion;
+      if (c && c.estado && c.estado !== "sin") mapa[n] = c.estado; // la derivada pisa al manual
+    });
+    return mapa;
   }
 
-  // Nivel personalizado de un alimento dado el mapa de tolerancias.
-  // Devuelve { nivel, nota } o null si el alimento NO cambia.
-  function nivelPersonalizado(alimento, tolerancias) {
-    if (!alimento || !Array.isArray(alimento.fodmap) || alimento.fodmap.length === 0) return null;
-    var estados = alimento.fodmap.map(function (f) { return estadoFodmap(f, tolerancias); });
-    var hayBloqueante = estados.some(function (e) { return e !== "tolera" && e !== "limite"; });
-    if (hayBloqueante) return null;                 // algún FODMAP no tolerado o sin probar
-    var hayLimite = estados.some(function (e) { return e === "limite"; });
-    if (hayLimite) {
-      if (alimento.nivel === "amarillo") return null; // ya es amarillo, no aporta
-      return { nivel: "amarillo", nota: "Según tu tolerancia, con moderación." };
-    }
-    if (alimento.nivel === "verde") return null;      // ya es verde
-    return { nivel: "verde", nota: "Según tu tolerancia." };
+  function hayAlgunaTolerancia() {
+    var mapa = mapaToleranciaPorAlimento();
+    return Object.keys(mapa).some(function (n) { return mapa[n] === "tolera" || mapa[n] === "limite"; });
+  }
+
+  var ORDEN_NIVEL = { rojo: 0, amarillo: 1, verde: 2 };
+  function aplicarTolerancia(lista) {
+    var cfg = almacenF3.cargar();
+    if (!cfg.verSegunTolerancia) return lista;
+    var mapa = mapaToleranciaPorAlimento();
+    return lista.map(function (a) {
+      var est = mapa[a.nombre];
+      if (!est || est === "no") return a;
+      var destino = est === "tolera" ? "verde" : "amarillo";
+      if (ORDEN_NIVEL[destino] <= ORDEN_NIVEL[a.nivel]) return a; // nunca empeorar
+      var copia = {}; for (var k in a) { if (Object.prototype.hasOwnProperty.call(a, k)) copia[k] = a[k]; }
+      copia.nivel = destino; copia._antes = a.nivel; return copia;
+    });
   }
 
   function pico(d) { return Math.max(d.dolor || 0, d.hinchazon || 0, d.gases || 0); }
@@ -1230,23 +1227,6 @@
     }
     if (p.pruebas || p.retos) { almacen.guardar(migrarFase2(p)); return true; }
     return false;
-  }
-
-  // Capa de SOLO LECTURA sobre una lista de alimentos. Si el interruptor está activo,
-  // devuelve copias con el nivel personalizado y el nivel oficial en _antes. No muta los originales.
-  function aplicarTolerancia(lista) {
-    var cfg = almacenF3.cargar();
-    if (!cfg.verSegunTolerancia) return lista;
-    var tol = cfg.tolerancias;
-    return lista.map(function (a) {
-      var np = nivelPersonalizado(a, tol);
-      if (!np) return a;
-      var copia = {};
-      for (var k in a) { if (Object.prototype.hasOwnProperty.call(a, k)) copia[k] = a[k]; }
-      copia.nivel = np.nivel;
-      copia._antes = a.nivel;
-      return copia;
-    });
   }
 
   /* ============================================================
@@ -1837,36 +1817,29 @@
     assert(mg.tolerancias_legacy && mg.tolerancias_legacy.fructosa, "migración F3 conserva lo viejo en tolerancias_legacy");
     almacenF3._mem = { version:2, manuales:{}, verSegunTolerancia:false };
 
-    // ---- FASE 3: lógica de re-coloreado (pura) ----
-    assert(peorEstado("tolera", "limite") === "limite", "peorEstado: limite peor que tolera");
-    assert(peorEstado("limite", "no") === "no", "peorEstado: no peor que limite");
-    assert(peorEstado("tolera", "tolera") === "tolera", "peorEstado: dos tolera = tolera");
-    var tolA = { "fructosa": { estado: "tolera" } };
-    assert(estadoFodmap("Fructosa", tolA) === "tolera", "estadoFodmap mapea Fructosa->fructosa");
-    var tolFr = { "fructanos-trigo": { estado: "tolera" }, "fructanos-verdura": { estado: "limite" } };
-    assert(estadoFodmap("Fructanos", tolFr) === "limite", "estadoFodmap Fructanos usa el más restrictivo");
-    assert(estadoFodmap("Fructanos", {}) === "sin_probar", "estadoFodmap Fructanos sin datos = sin_probar");
-
-    var cebolla = { nombre: "Cebolla", nivel: "rojo", fodmap: ["Fructanos"] };
-    assert(nivelPersonalizado(cebolla, {}) === null, "sin tolerancia no se re-colorea");
-    assert(nivelPersonalizado(cebolla, { "fructanos-trigo": { estado: "tolera" }, "fructanos-verdura": { estado: "tolera" } }).nivel === "verde",
-      "cebolla->verde si tolera ambos fructanos");
-    assert(nivelPersonalizado(cebolla, { "fructanos-trigo": { estado: "tolera" }, "fructanos-verdura": { estado: "limite" } }).nivel === "amarillo",
-      "cebolla->amarillo si un fructano es 'con límite'");
-    assert(nivelPersonalizado(cebolla, { "fructanos-trigo": { estado: "tolera" } }) === null,
-      "cebolla no cambia si el otro fructano está sin probar");
-    var guisante = { nombre: "Guisantes", nivel: "rojo", fodmap: ["GOS", "Fructanos"] };
-    assert(nivelPersonalizado(guisante, { "gos": { estado: "tolera" }, "fructanos-trigo": { estado: "tolera" }, "fructanos-verdura": { estado: "tolera" } }).nivel === "verde",
-      "multi-FODMAP mejora solo si todos tolerados");
-    assert(nivelPersonalizado(guisante, { "gos": { estado: "tolera" } }) === null,
-      "multi-FODMAP no mejora si falta uno");
-    var arroz = { nombre: "Arroz", nivel: "verde", fodmap: [] };
-    assert(nivelPersonalizado(arroz, { "fructosa": { estado: "tolera" } }) === null, "alimento sin FODMAP no cambia");
-    var ciruela = { nombre: "Ciruela", nivel: "rojo", fodmap: [], motivo: "carga total" };
-    assert(nivelPersonalizado(ciruela, { "fructosa": { estado: "tolera" } }) === null, "alimento por 'motivo' (sin FODMAP) nunca cambia");
-    var tomate = { nombre: "Tomate", nivel: "amarillo", fodmap: ["Fructosa"] };
-    assert(nivelPersonalizado(tomate, { "fructosa": { estado: "tolera" } }).nivel === "verde", "amarillo->verde si tolera su único FODMAP");
-    assert(nivelPersonalizado(tomate, { "fructosa": { estado: "limite" } }) === null, "amarillo con límite no cambia (ya es amarillo)");
+    // ---- FASE 3 v2: tolerancia por alimento + recolor ----
+    almacen._mem = { version: 2, pruebas: {} }; almacenF3._mem = { version: 2, manuales: {}, verSegunTolerancia: false };
+    iniciarPrueba("Cebolla", "2026-06-01", "alterna"); setConclusion("Cebolla", "tolera", null);
+    var mapa = mapaToleranciaPorAlimento();
+    assert(mapa["Cebolla"] === "tolera", "la conclusión 'tolera' entra en el mapa");
+    setManual("Pasta", "limite", "1 plato", "");
+    assert(mapaToleranciaPorAlimento()["Pasta"] === "limite", "el manual entra en el mapa");
+    setManual("Cebolla", "no", "", "");
+    assert(mapaToleranciaPorAlimento()["Cebolla"] === "tolera", "la derivada manda sobre el manual");
+    assert(hayAlgunaTolerancia() === true, "hay tolerancias");
+    var muestra = [{ nombre:"Cebolla", nivel:"rojo", fodmap:["Fructanos"], categoria:"Verduras", sinonimos:[] }];
+    almacenF3._mem.verSegunTolerancia = false;
+    assert(aplicarTolerancia(muestra)[0].nivel === "rojo", "toggle off no cambia");
+    almacenF3._mem.verSegunTolerancia = true;
+    var ap = aplicarTolerancia(muestra);
+    assert(ap[0].nivel === "verde", "Cebolla tolerada -> verde");
+    assert(ap[0]._antes === "rojo", "guarda el nivel oficial en _antes");
+    assert(muestra[0].nivel === "rojo", "no muta el original");
+    var muestra2 = [{ nombre:"Pasta", nivel:"rojo", fodmap:["Fructanos"], categoria:"Cereales y pan", sinonimos:[] }];
+    assert(aplicarTolerancia(muestra2)[0].nivel === "amarillo", "límite -> amarillo");
+    var muestra3 = [{ nombre:"X", nivel:"verde", fodmap:[], categoria:"Verduras", sinonimos:[] }];
+    assert(aplicarTolerancia(muestra3)[0].nivel === "verde", "un verde sin marca no cambia");
+    almacen._mem = { version: 2, pruebas: {} }; almacenF3._mem = { version: 2, manuales: {}, verSegunTolerancia: false };
 
     // ---- REINTRO: resumen por grupo ----
     almacen._mem = { version: 2, pruebas: {} };
@@ -1898,16 +1871,6 @@
     assert(importarTodo('{"foo":1}') === false, "sin secciones -> false");
     almacen._mem = { version: 2, pruebas: {} }; almacenF3._mem = { version: 2, manuales: {}, verSegunTolerancia: false };
 
-    // ---- FASE 3: aplicarTolerancia (capa sobre DATOS) ----
-    almacenF3._mem = { version: 1, tolerancias: {}, verSegunTolerancia: false };
-    var muestra = [{ nombre: "X", nivel: "rojo", fodmap: ["Fructosa"], categoria: "Frutas", sinonimos: [] }];
-    assert(aplicarTolerancia(muestra)[0].nivel === "rojo", "toggle off: no cambia los niveles");
-    almacenF3._mem = { version: 1, tolerancias: { "fructosa": { estado: "tolera" } }, verSegunTolerancia: true };
-    var ap = aplicarTolerancia(muestra);
-    assert(ap[0].nivel === "verde", "toggle on: re-colorea a verde");
-    assert(ap[0]._antes === "rojo", "toggle on: guarda el nivel oficial en _antes");
-    assert(muestra[0].nivel === "rojo", "aplicarTolerancia no muta el alimento original");
-    almacenF3._mem = { version: 1, tolerancias: {}, verSegunTolerancia: false };
     almacenF3._mem = null;                      // dejar limpio
     almacen._mem = { version: 2, pruebas: {} }; // dejar limpio
   }
