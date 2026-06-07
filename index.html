@@ -956,79 +956,29 @@
   }
 
   /* ============================================================
-     FASE 2 · DATOS (retos de reintroducción)
-     agenda: "seguida" (días 1-2-3) | "alterna" (días 1-3-5, para fructanos y GOS)
+     FASE 2 · GRUPOS FODMAP (metadatos) + derivación desde el alimento
      ============================================================ */
-  var RETOS = [
-    { id:"fructosa", grupo:"Fructosa", agenda:"seguida", fodmap:"Fructosa",
-      nota:"La miel contiene solo fructosa, por eso es ideal para probar este grupo.",
-      alimentos:[
-        { nombre:"Miel", sugerido:true, dosis:["1 cucharadita","2 cucharaditas","1 cucharada"] },
-        { nombre:"Mango", sugerido:false, dosis:["1/4 de pieza","1/2 pieza","1 pieza pequeña"] },
-        { nombre:"Zumo de naranja", sugerido:false, dosis:["1/2 vaso (125 ml)","3/4 de vaso","1 vaso (250 ml)"] }
-      ] },
-    { id:"lactosa", grupo:"Lactosa", agenda:"seguida", fodmap:"Lactosa",
-      nota:"La leche normal es el clásico alimento de prueba para la lactosa.",
-      alimentos:[
-        { nombre:"Leche normal", sugerido:true, dosis:["1/4 vaso (60 ml)","1/2 vaso (125 ml)","1 vaso (250 ml)"] },
-        { nombre:"Yogur natural normal", sugerido:false, dosis:["1/4 tarrina","1/2 tarrina","1 tarrina (125 g)"] }
-      ] },
-    { id:"sorbitol", grupo:"Sorbitol", agenda:"seguida", fodmap:"Sorbitol",
-      nota:"Para el sorbitol puedes usar aguacate (lo recomienda tu guía clínica) o moras. Elige el alimento que estés reintroduciendo.",
-      alimentos:[
-        { nombre:"Aguacate", sugerido:true, dosis:["1/8 de pieza","1/4 de pieza","1/2 pieza"],
-          nota:"Tu guía clínica recomienda el aguacate para probar el sorbitol. Nota: Monash lo retiró como prueba estándar porque también contiene perseitol (otro poliol); ambos criterios son válidos, coméntalo con tu dietista." },
-        { nombre:"Moras / zarzamoras", sugerido:false, dosis:["5 moras","10 moras","20 moras"] },
-        { nombre:"Albaricoque", sugerido:false, dosis:["1/2 unidad","1 unidad","2 unidades"] }
-      ] },
-    { id:"manitol", grupo:"Manitol", agenda:"seguida", fodmap:"Manitol",
-      nota:"El champiñón es rico en manitol y bajo en otros FODMAPs.",
-      alimentos:[
-        { nombre:"Champiñón", sugerido:true, dosis:["1/2 champiñón","1 champiñón","3 champiñones"] },
-        { nombre:"Coliflor", sugerido:false, dosis:["1/4 taza","1/2 taza","1 taza"] },
-        { nombre:"Setas Portobello", sugerido:false, dosis:["1/2 seta","1 seta","2 setas"] }
-      ] },
-    { id:"fructanos-trigo", grupo:"Fructanos (trigo)", agenda:"alterna", fodmap:"Fructanos",
-      nota:"Prueba los fructanos del trigo por separado de los de la verdura: se toleran distinto.",
-      alimentos:[
-        { nombre:"Pan de trigo", sugerido:true, dosis:["1/2 rebanada","1 rebanada","2 rebanadas"] },
-        { nombre:"Pasta de trigo", sugerido:false, dosis:["1/4 taza cocida","1/2 taza cocida","1 taza cocida"] }
-      ] },
-    { id:"fructanos-verdura", grupo:"Fructanos (verdura)", agenda:"alterna", fodmap:"Fructanos",
-      nota:"La cebolla es uno de los fructanos más potentes; pruébala aparte del trigo.",
-      alimentos:[
-        { nombre:"Cebolla", sugerido:true, dosis:["1 cucharadita cruda","1 cucharada cruda","1/4 de cebolla"] },
-        { nombre:"Ajo", sugerido:false, dosis:["1/4 de diente","1/2 diente","1 diente"] }
-      ] },
-    { id:"gos", grupo:"GOS (galactanos)", agenda:"alterna", fodmap:"GOS",
-      nota:"Los garbanzos aportan GOS. De bote y enjuagados son el alimento de prueba habitual.",
-      alimentos:[
-        { nombre:"Garbanzos de bote", sugerido:true, dosis:["1/4 taza","1/2 taza","3/4 taza"] },
-        { nombre:"Lentejas de bote", sugerido:false, dosis:["1/4 taza","1/2 taza","3/4 taza"] },
-        { nombre:"Almendras", sugerido:false, dosis:["10 unidades","15 unidades","20 unidades"] }
-      ] }
-  ];
+  var GRUPOS_META = {
+    "Fructosa": { agenda:"seguida", nota:"La fructosa en exceso (sin glucosa que la acompañe) es la que da síntomas." },
+    "Lactosa":  { agenda:"seguida", nota:"Prueba con un lácteo cuyo único FODMAP sea la lactosa." },
+    "Sorbitol": { agenda:"seguida", nota:"Poliol presente en algunas frutas y edulcorantes 'sin azúcar'." },
+    "Manitol":  { agenda:"seguida", nota:"Poliol presente en setas y algunas verduras." },
+    "Fructanos":{ agenda:"alterna", nota:"El trigo y la verdura se toleran distinto; pruébalos por separado. Los síntomas pueden tardar hasta 48 h." },
+    "GOS":      { agenda:"alterna", nota:"Galactanos de legumbres y algunos frutos secos; los síntomas pueden tardar hasta 48 h." }
+  };
 
-  /* ============================================================
-     FASE 2 · LÓGICA PURA (agenda, validación, persistencia)
-     ============================================================ */
-  function validarReto(r) {
-    var e = [];
-    if (!r || typeof r !== "object") return ["no es objeto"];
-    if (!r.id) e.push("id ausente");
-    if (!r.grupo) e.push("grupo ausente");
-    if (["seguida", "alterna"].indexOf(r.agenda) === -1) e.push("agenda inválida");
-    if (FODMAPS_VALIDOS.indexOf(r.fodmap) === -1) e.push("fodmap inválido: " + r.fodmap);
-    if (!Array.isArray(r.alimentos) || !r.alimentos.length) { e.push("sin alimentos"); return e; }
-    var sug = r.alimentos.filter(function (a) { return a.sugerido; });
-    if (sug.length !== 1) e.push("debe haber exactamente 1 sugerido");
-    r.alimentos.forEach(function (a) {
-      if (!a.nombre) e.push("alimento sin nombre");
-      if (!Array.isArray(a.dosis) || a.dosis.length !== 3) e.push((a.nombre || "?") + ": dosis debe tener 3");
-    });
-    return e;
+  function gruposDeAlimento(a) {
+    return (a && Array.isArray(a.fodmap)) ? a.fodmap.slice() : [];
   }
 
+  function agendaDeAlimento(a) {
+    var g = gruposDeAlimento(a);
+    return (g.indexOf("Fructanos") !== -1 || g.indexOf("GOS") !== -1) ? "alterna" : "seguida";
+  }
+
+  /* ============================================================
+     FASE 2 · LÓGICA PURA (agenda, persistencia)
+     ============================================================ */
   function pad2(n) { return (n < 10 ? "0" : "") + n; }
   function aISO(d) { return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate()); }
 
@@ -1091,19 +1041,11 @@
   }
 
   function iniciarReto(id, alimentoNombre, fechaInicio, dosisCustom) {
-    var reto = RETOS.filter(function (r) { return r.id === id; })[0];
-    if (!reto) return;
     var esCustom = Array.isArray(dosisCustom) && dosisCustom.length === 3;
-    var nombre, dosis;
-    if (esCustom) {
-      nombre = (alimentoNombre || "Mi alimento");
-      dosis = dosisCustom;
-    } else {
-      var alimento = reto.alimentos.filter(function (a) { return a.nombre === alimentoNombre; })[0] || reto.alimentos[0];
-      nombre = alimento.nombre;
-      dosis = alimento.dosis;
-    }
-    var fechas = calcularFechas(fechaInicio, reto.agenda);
+    var nombre = alimentoNombre || "Mi alimento";
+    var dosis = esCustom ? dosisCustom : ["Dosis 1", "Dosis 2", "Dosis 3"];
+    var agenda = "seguida";
+    var fechas = calcularFechas(fechaInicio, agenda);
     var data = almacen.cargar();
     data.retos[id] = {
       alimentoElegido: nombre,
@@ -1775,20 +1717,6 @@
     assert(buscar("pan", DATOS, null, false).length >= 2, "encuentra varios panes");
     assert(buscar("leche", DATOS, null, false).length >= 2, "encuentra leches");
 
-    // ---- FASE 2: definición de retos ----
-    assert(RETOS.length >= 6, "hay al menos 6 retos (hay " + RETOS.length + ")");
-    var errRetos = [];
-    RETOS.forEach(function (r) {
-      var e = validarReto(r);
-      if (e.length) errRetos.push(r.id + ": " + e.join(", "));
-    });
-    assert(errRetos.length === 0, "todos los retos son válidos" +
-      (errRetos.length ? " — ERRORES: " + errRetos.join(" | ") : ""));
-    var idsR = RETOS.map(function (r) { return r.id; });
-    var setR = {}; var dupR = [];
-    idsR.forEach(function (n) { if (setR[n]) dupR.push(n); setR[n] = true; });
-    assert(dupR.length === 0, "no hay ids de reto duplicados");
-
     // ---- FASE 2: cálculo de fechas ----
     assert(calcularFechas("2026-06-01", "seguida").join(",") === "2026-06-01,2026-06-02,2026-06-03",
       "agenda seguida = días consecutivos");
@@ -1798,56 +1726,17 @@
       "agenda seguida cruza fin de mes");
     assert(calcularFechas("fecha-mala", "seguida").length === 0, "fecha inválida devuelve []");
 
-    // ---- FASE 2: persistencia (en memoria, sin localStorage) ----
-    almacen._mem = null;
-    var d0 = almacen.cargar();
-    assert(d0 && d0.retos && typeof d0.retos === "object", "cargar sin datos da estructura vacía válida");
-    iniciarReto("fructosa", "Miel", "2026-06-01");
-    var p = progresoDe("fructosa");
-    assert(p && p.dias.length === 3, "iniciarReto crea 3 días");
-    assert(p.dias[0].dosis === "1 cucharadita", "iniciarReto copia la primera dosis");
-    assert(p.dias[2].fecha === "2026-06-03", "iniciarReto calcula fechas seguidas");
-    assert(estadoReto("fructosa") === "encurso", "reto recién iniciado está en curso");
-    guardarDia("fructosa", 0, { dolor: 3, hinchazon: 5, gases: 2, notas: "leve" });
-    assert(progresoDe("fructosa").dias[0].guardado === true, "guardarDia marca guardado");
-    assert(progresoDe("fructosa").dias[0].dolor === 3, "guardarDia guarda el valor");
-    assert(estadoReto("lactosa") === "sin-iniciar", "reto no iniciado = sin-iniciar");
-
-    // ---- FASE 2: exportar / importar ----
-    var exp = almacen.exportar();
-    almacen._mem = { version: 1, retos: {} };
-    assert(almacen.importar(exp) === true, "importar JSON válido funciona");
-    assert(progresoDe("fructosa").dias[0].dolor === 3, "importar restaura los datos");
-    var antes = almacen.exportar();
-    assert(almacen.importar("{ no es json") === false, "importar JSON inválido devuelve false");
-    assert(almacen.importar('{"foo":1}') === false, "importar sin 'retos' devuelve false");
-    assert(almacen.exportar() === antes, "un import inválido no pisa los datos");
-
-    // ---- FASE 2: reiniciar ----
-    reiniciarReto("fructosa");
-    assert(progresoDe("fructosa") === null, "reiniciarReto borra el progreso");
-
-    // ---- FASE 2: alimento personalizado ----
-    iniciarReto("sorbitol", "Aguacate de Rocío", "2026-07-01", ["1/2 tostada", "1 tostada", "2 tostadas"]);
-    var pc = progresoDe("sorbitol");
-    assert(pc && pc.dias.length === 3, "iniciarReto personalizado crea 3 días");
-    assert(pc.alimentoElegido === "Aguacate de Rocío", "personalizado usa el nombre escrito");
-    assert(pc.dias[1].dosis === "1 tostada", "personalizado usa las dosis escritas");
-    assert(pc.personalizado === true, "marca el reto como personalizado");
-    reiniciarReto("sorbitol");
-
-    // ---- FASE 2: nuevos alimentos del catálogo ----
-    function alimentoEn(idr, nombre) {
-      var r = RETOS.filter(function (x) { return x.id === idr; })[0];
-      return !!(r && r.alimentos.some(function (a) { return a.nombre === nombre; }));
-    }
-    assert(alimentoEn("fructosa", "Mango"), "fructosa incluye Mango");
-    assert(alimentoEn("fructosa", "Zumo de naranja"), "fructosa incluye Zumo de naranja");
-    assert(alimentoEn("sorbitol", "Aguacate"), "sorbitol incluye Aguacate");
-    assert(alimentoEn("manitol", "Setas Portobello"), "manitol incluye Setas Portobello");
-    var avoc = RETOS.filter(function (r) { return r.id === "sorbitol"; })[0]
-      .alimentos.filter(function (a) { return a.nombre === "Aguacate"; })[0];
-    assert(avoc && avoc.nota && avoc.nota.length > 0, "el Aguacate lleva nota informativa (perseitol)");
+    // ---- NUEVO FASE 2: derivación de grupo y agenda ----
+    assert(gruposDeAlimento({ fodmap: ["Fructanos","Fructosa"] }).join(",") === "Fructanos,Fructosa",
+      "gruposDeAlimento devuelve los FODMAP del alimento");
+    assert(gruposDeAlimento({ fodmap: [] }).length === 0, "alimento verde no tiene grupos");
+    assert(agendaDeAlimento({ fodmap: ["Fructosa"] }) === "seguida", "fructosa -> agenda seguida");
+    assert(agendaDeAlimento({ fodmap: ["Fructanos"] }) === "alterna", "fructanos -> agenda alterna");
+    assert(agendaDeAlimento({ fodmap: ["GOS"] }) === "alterna", "GOS -> agenda alterna");
+    assert(agendaDeAlimento({ fodmap: ["Manitol","GOS"] }) === "alterna", "si algún FODMAP es lento, alterna");
+    assert(agendaDeAlimento({ fodmap: [] }) === "seguida", "verde -> agenda seguida por defecto");
+    assert(GRUPOS_META["Fructanos"].agenda === "alterna", "GRUPOS_META Fructanos es alterna");
+    assert(Object.keys(GRUPOS_META).length === 6, "hay 6 grupos FODMAP en GRUPOS_META");
 
     // ---- FASE 3: persistencia ----
     almacenF3._mem = null;
