@@ -1524,80 +1524,57 @@
   /* ============================================================
      FASE 3 · RENDER (panel de personalización)
      ============================================================ */
-  var ETIQUETAS_ESTADO = {
-    sin_probar: "Sin probar",
-    tolera: "Tolero",
-    limite: "Tolero con límite",
-    no: "No tolero"
-  };
 
   function renderFase3() {
     var v = document.getElementById("vista");
     if (!v) return;
-    var tol = almacenF3.cargar().tolerancias;
-    var nTolera = 0;
-    RETOS.forEach(function (r) {
-      var e = (tol[r.id] || {}).estado;
-      if (e === "tolera" || e === "limite") nTolera++;
-    });
+    var pr = almacen.cargar().pruebas || {};
+    var derivados = Object.keys(pr).filter(function (n) { var c = pr[n].conclusion; return c && c.estado && c.estado !== "sin"; });
 
-    var cards = RETOS.map(function (r) {
-      var t = toleranciaDe(r.id);
-      var resumen = resumenFase2PorGrupo(r.id);
-      var picos = resumen
-        ? '<p class="tol-picos">Fase 2 · ' + escapeHTML(resumen.alimento) + ': ' +
-          resumen.dias.map(function (d) {
-            return d.etiqueta.replace("Dosis ", "D") + ' ' +
-              '<span class="' + (d.pico >= 4 ? "alto" : "") + '">' + d.pico + '</span>';
-          }).join(" · ") + ' <span class="tol-picos-ley">(pico 0-10)</span></p>'
-        : '<p class="tol-picos">Sin diario en Fase 2 (puedes marcarlo igualmente).</p>';
+    var parte1 = derivados.length ? derivados.map(function (n) {
+      var p = pr[n]; var c = p.conclusion;
+      var al = DATOS.filter(function (x) { return x.nombre === n; })[0];
+      var grupos = al ? gruposDeAlimento(al) : [];
+      var cant = (c.estado === "limite" && c.dosisIndex != null && p.dias[c.dosisIndex]) ? (p.dias[c.dosisIndex].cantidad || p.dias[c.dosisIndex].etiqueta) : "";
+      return '<div class="tol-card"><h3>' + escapeHTML(n) + '</h3>' +
+        '<p class="tol-picos">' + escapeHTML(grupos.join(" · ") || "sin grupo") + '</p>' +
+        '<p><strong>' + escapeHTML(CONCL_ETIQUETAS[c.estado]) + (cant ? " — " + escapeHTML(cant) : "") + '</strong></p>' +
+        '<button class="btn sec" data-abrir-alim="' + escapeHTML(n) + '">Ver / editar el reto</button></div>';
+    }).join("") : '<p class="vacio">Aún no has concluido ninguna reintroducción.</p>';
 
-      var opcs = ["sin_probar", "tolera", "limite", "no"].map(function (e) {
-        return '<option value="' + e + '"' + (t.estado === e ? " selected" : "") + '>' +
-          ETIQUETAS_ESTADO[e] + '</option>';
-      }).join("");
-
-      var sugerida = t.limiteDosis || sugerirLimiteDosis(r.id);
-      var limOpcs = [1, 2, 3].map(function (n) {
-        return '<option value="' + n + '"' + (sugerida === n ? " selected" : "") + '>Hasta la dosis ' + n + '</option>';
-      }).join("");
-      var limWrap = '<label class="tol-lim"' + (t.estado === "limite" ? "" : " hidden") +
-        ' data-limwrap="' + escapeHTML(r.id) + '">Cantidad que toleras' +
-        '<select class="alim" data-limite="' + escapeHTML(r.id) + '">' + limOpcs + '</select></label>';
-
-      return '<div class="tol-card"><h3>' + escapeHTML(r.grupo) + '</h3>' +
-        picos +
-        '<label>¿Lo toleras?' +
-        '<select class="alim" data-tol="' + escapeHTML(r.id) + '">' + opcs + '</select></label>' +
-        limWrap + '</div>';
-    }).join("");
+    var manuales = manualesLista();
+    var parte2 = manuales.length ? manuales.map(function (m) {
+      return '<div class="tol-card"><h3>' + escapeHTML(m.nombre) + '</h3>' +
+        '<p><strong>' + escapeHTML(CONCL_ETIQUETAS[m.estado] || m.estado) + (m.cantidad ? " — " + escapeHTML(m.cantidad) : "") + '</strong>' +
+        (m.nota ? '<br><small>' + escapeHTML(m.nota) + '</small>' : '') + '</p>' +
+        '<button class="btn sec peligro" data-del-manual="' + escapeHTML(m.nombre) + '">Quitar</button></div>';
+    }).join("") : '<p class="vacio">No has añadido alimentos a mano.</p>';
 
     v.innerHTML =
-      '<header><h1>🌱 Personalización</h1>' +
-      '<p class="aviso">Fase 3: marca qué toleras (lo decides tú con tu dietista a partir de tu diario de Fase 2). ' +
-      'La app <strong>no diagnostica</strong>: solo guarda lo que tú indicas.</p></header>' +
-      '<p class="intro">Toleras <strong>' + nTolera + ' de ' + RETOS.length + '</strong> grupos. ' +
-      'En el Buscador puedes activar "🌱 Ver según mi tolerancia".</p>' +
-      cards +
-      '<div class="btn-row">' +
-        '<button class="btn sec" data-accion="exportar">⬇️ Exportar copia</button>' +
-        '<button class="btn sec" data-accion="importar">⬆️ Importar copia</button>' +
-      '</div>' +
-      '<footer>Tú marcas la tolerancia; la app solo la registra. Coméntalo siempre con tu dietista.</footer>';
+      '<header><h1>🌱 Personalización</h1><p class="aviso">Lo que toleras, en personal. La app registra lo que tú decides; no diagnostica.</p></header>' +
+      '<h2>1 · De tus reintroducciones</h2>' + parte1 +
+      '<h2>2 · Añadidos a mano</h2>' +
+      '<p class="intro">Alimentos que no pasaste por reintroducción y sabes por experiencia que toleras (o no).</p>' + parte2 +
+      '<div class="btn-row"><button class="btn" data-add-manual="1">➕ Añadir alimento</button></div>' +
+      '<div class="btn-row"><button class="btn sec" data-accion="exportar">⬇️ Exportar copia</button>' +
+      '<button class="btn sec" data-accion="importar">⬆️ Importar copia</button></div>' +
+      '<footer>En el Buscador puedes activar "🌱 Ver según mi tolerancia".</footer>';
 
-    Array.prototype.forEach.call(v.querySelectorAll("[data-tol]"), function (sel) {
-      sel.addEventListener("change", function () {
-        var id = sel.getAttribute("data-tol");
-        var limSel = v.querySelector('[data-limite="' + id + '"]');
-        var lim = limSel ? Number(limSel.value) : null;
-        setTolerancia(id, sel.value, lim);
-        renderFase3();
-      });
+    Array.prototype.forEach.call(v.querySelectorAll("[data-abrir-alim]"), function (b) {
+      b.addEventListener("click", function () { navegar("fase2"); irAlimentoReto(b.getAttribute("data-abrir-alim")); });
     });
-    Array.prototype.forEach.call(v.querySelectorAll("[data-limite]"), function (sel) {
-      sel.addEventListener("change", function () {
-        setTolerancia(sel.getAttribute("data-limite"), "limite", Number(sel.value));
-      });
+    Array.prototype.forEach.call(v.querySelectorAll("[data-del-manual]"), function (b) {
+      b.addEventListener("click", function () { borrarManual(b.getAttribute("data-del-manual")); renderFase3(); });
+    });
+    var add = v.querySelector("[data-add-manual]");
+    if (add) add.addEventListener("click", function () {
+      var nombre = window.prompt("¿Qué alimento? (puedes escribir uno que no esté en el buscador)");
+      if (!nombre) return;
+      var estado = window.prompt("¿Lo toleras? escribe: tolera / limite / no", "tolera");
+      if (["tolera","limite","no"].indexOf(estado) === -1) { window.alert("Escribe tolera, limite o no."); return; }
+      var cantidad = (estado === "limite") ? (window.prompt("¿Hasta qué cantidad?", "") || "") : "";
+      setManual(nombre, estado, cantidad, "");
+      renderFase3();
     });
     wireAcciones(v);
   }
