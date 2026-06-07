@@ -999,23 +999,50 @@
   }
 
   var STORAGE_KEY = "sii_fodmap_fase2_v1";
+
+  function migrarFase2(p) {
+    // v1 (retos por grupo) -> v2 (pruebas por alimento). Idempotente.
+    if (!p || typeof p !== "object") return { version: 2, pruebas: {} };
+    if (p.version === 2 && p.pruebas) return p;
+    var out = { version: 2, pruebas: {} };
+    var retos = p.retos && typeof p.retos === "object" ? p.retos : {};
+    Object.keys(retos).forEach(function (gid) {
+      var r = retos[gid];
+      if (!r || !r.alimentoElegido) return;
+      var dias = (Array.isArray(r.dias) ? r.dias : []).map(function (d, i) {
+        return {
+          etiqueta: d.etiqueta || ("Dosis " + (i + 1)),
+          cantidad: d.dosis || d.cantidad || "",
+          fecha: d.fecha || "",
+          dolor: d.dolor || 0, hinchazon: d.hinchazon || 0, gases: d.gases || 0,
+          notas: d.notas || "",
+          registrado: (d.registrado != null) ? !!d.registrado : !!d.guardado
+        };
+      });
+      out.pruebas[r.alimentoElegido] = {
+        alimento: r.alimentoElegido,
+        agenda: r.agenda || "seguida",
+        dias: dias,
+        conclusion: { estado: "sin", dosisIndex: null }
+      };
+    });
+    return out;
+  }
+
   var almacen = {
     _mem: null,
     disponible: function () {
-      try {
-        localStorage.setItem("__t", "1");
-        localStorage.removeItem("__t");
-        return true;
-      } catch (e) { return false; }
+      try { localStorage.setItem("__t", "1"); localStorage.removeItem("__t"); return true; }
+      catch (e) { return false; }
     },
     cargar: function () {
       if (this._mem) return this._mem;
-      var base = { version: 1, retos: {} };
+      var base = { version: 2, pruebas: {} };
       try {
         var raw = localStorage.getItem(STORAGE_KEY);
         if (raw) {
           var p = JSON.parse(raw);
-          if (p && p.retos && typeof p.retos === "object") base = p;
+          base = migrarFase2(p);
         }
       } catch (e) {}
       this._mem = base;
@@ -1030,8 +1057,9 @@
     importar: function (json) {
       var p;
       try { p = JSON.parse(json); } catch (e) { return false; }
-      if (!p || typeof p !== "object" || !p.retos || typeof p.retos !== "object") return false;
-      this.guardar({ version: p.version || 1, retos: p.retos });
+      if (!p || typeof p !== "object") return false;
+      if (!p.pruebas && !p.retos) return false;       // no reconocible
+      this.guardar(migrarFase2(p));
       return true;
     }
   };
@@ -1653,6 +1681,7 @@
   function registerTests(assert) {
     // Motor
     assert(true, "el motor de tests funciona");
+    function store_clear_helper() { try { localStorage.removeItem("sii_fodmap_fase2_v1"); } catch (e) {} }
 
     // normalizar()
     assert(normalizar("Plátano") === "platano", "normalizar quita tildes y minúsculas");
@@ -1742,6 +1771,43 @@
     assert(agendaDeAlimento({ fodmap: [] }) === "seguida", "verde -> agenda seguida por defecto");
     assert(GRUPOS_META["Fructanos"].agenda === "alterna", "GRUPOS_META Fructanos es alterna");
     assert(Object.keys(GRUPOS_META).length === 6, "hay 6 grupos FODMAP en GRUPOS_META");
+
+    // ---- FASE 2 v2: persistencia por alimento ----
+    almacen._mem = null; store_clear_helper();
+    var d0 = almacen.cargar();
+    assert(d0 && d0.version === 2 && d0.pruebas && typeof d0.pruebas === "object",
+      "cargar sin datos da estructura v2 vacía");
+
+    // migración desde formato viejo (retos por grupo)
+    almacen._mem = null;
+    localStorage.setItem("sii_fodmap_fase2_v1", JSON.stringify({
+      version: 1, retos: { "fructosa": {
+        alimentoElegido: "Miel", personalizado: false, fechaInicio: "2026-06-01",
+        dias: [ { etiqueta:"Dosis 1", dosis:"1 cucharadita", fecha:"2026-06-01", dolor:3, hinchazon:5, gases:2, notas:"leve", guardado:true } ]
+      } }
+    }));
+    var mig = almacen.cargar();
+    assert(mig.version === 2, "migración sube a version 2");
+    assert(mig.pruebas["Miel"], "migración crea pruebas['Miel'] desde el reto antiguo");
+    assert(mig.pruebas["Miel"].dias[0].cantidad === "1 cucharadita", "migración: dosis -> cantidad");
+    assert(mig.pruebas["Miel"].dias[0].registrado === true, "migración: guardado -> registrado");
+    assert(mig.pruebas["Miel"].dias[0].dolor === 3, "migración conserva los síntomas");
+    assert(mig.pruebas["Miel"].conclusion.estado === "sin", "migración: conclusión por defecto 'sin'");
+
+    // exportar/importar v2
+    almacen._mem = { version: 2, pruebas: {} }; localStorage.removeItem("sii_fodmap_fase2_v1");
+    almacen.guardar(almacen._mem);
+    almacen._mem = null;
+    iniciarPrueba("Leche normal", "2026-06-01", "seguida");
+    guardarDosis("Leche normal", 0, { dolor: 4, hinchazon: 0, gases: 1, notas: "ok" });
+    var exp = almacen.exportar();
+    almacen._mem = { version: 2, pruebas: {} };
+    assert(almacen.importar(exp) === true, "importar v2 válido funciona");
+    assert(pruebaDe("Leche normal").dias[0].dolor === 4, "importar restaura los datos");
+    var antes = almacen.exportar();
+    assert(almacen.importar("{ no es json") === false, "importar JSON inválido = false");
+    assert(almacen.importar('{"foo":1}') === false, "importar sin 'pruebas' ni 'retos' = false");
+    assert(almacen.exportar() === antes, "import inválido no pisa datos");
 
     // ---- FASE 3: persistencia ----
     almacenF3._mem = null;
