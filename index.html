@@ -1064,52 +1064,70 @@
     }
   };
 
-  function progresoDe(id) {
-    var data = almacen.cargar();
-    return data.retos[id] || null;
+  function pruebaDe(nombre) {
+    var d = almacen.cargar();
+    return (d.pruebas && d.pruebas[nombre]) ? d.pruebas[nombre] : null;
   }
 
-  function iniciarReto(id, alimentoNombre, fechaInicio, dosisCustom) {
-    var esCustom = Array.isArray(dosisCustom) && dosisCustom.length === 3;
-    var nombre = alimentoNombre || "Mi alimento";
-    var dosis = esCustom ? dosisCustom : ["Dosis 1", "Dosis 2", "Dosis 3"];
-    var agenda = "seguida";
-    var fechas = calcularFechas(fechaInicio, agenda);
+  function estadoPrueba(nombre) {
+    var p = pruebaDe(nombre);
+    if (!p) return "sin-iniciar";
+    if (p.conclusion && p.conclusion.estado && p.conclusion.estado !== "sin") return "hecho";
+    return "encurso";
+  }
+
+  function iniciarPrueba(nombre, fechaISO, agenda, n) {
+    n = n || 3;
+    var fechas = calcularFechas(fechaISO, agenda, n);
+    var dias = [];
+    for (var i = 0; i < n; i++) {
+      dias.push({ etiqueta: "Dosis " + (i + 1), cantidad: "", fecha: fechas[i] || "",
+        dolor: 0, hinchazon: 0, gases: 0, notas: "", registrado: false });
+    }
     var data = almacen.cargar();
-    data.retos[id] = {
-      alimentoElegido: nombre,
-      personalizado: esCustom,
-      fechaInicio: fechaInicio,
-      dias: dosis.map(function (d, i) {
-        return { etiqueta: "Dosis " + (i + 1), dosis: d, fecha: fechas[i] || "",
-          dolor: 0, hinchazon: 0, gases: 0, notas: "", guardado: false };
-      })
-    };
+    data.pruebas[nombre] = { alimento: nombre, agenda: agenda, dias: dias,
+      conclusion: { estado: "sin", dosisIndex: null } };
     almacen.guardar(data);
   }
 
-  function guardarDia(id, idx, valores) {
-    var data = almacen.cargar();
-    var r = data.retos[id];
-    if (!r || !r.dias[idx]) return;
-    r.dias[idx].dolor = valores.dolor;
-    r.dias[idx].hinchazon = valores.hinchazon;
-    r.dias[idx].gases = valores.gases;
-    r.dias[idx].notas = valores.notas;
-    r.dias[idx].guardado = true;
+  function setCantidad(nombre, idx, cantidad) {
+    var data = almacen.cargar(); var p = data.pruebas[nombre];
+    if (!p || !p.dias[idx]) return;
+    p.dias[idx].cantidad = cantidad; p.dias[idx].registrado = true;
     almacen.guardar(data);
   }
 
-  function reiniciarReto(id) {
-    var data = almacen.cargar();
-    delete data.retos[id];
+  function guardarDosis(nombre, idx, valores) {
+    var data = almacen.cargar(); var p = data.pruebas[nombre];
+    if (!p || !p.dias[idx]) return;
+    var d = p.dias[idx];
+    if (valores.cantidad != null) d.cantidad = valores.cantidad;
+    d.dolor = valores.dolor || 0; d.hinchazon = valores.hinchazon || 0; d.gases = valores.gases || 0;
+    if (valores.notas != null) d.notas = valores.notas;
+    d.registrado = true;
     almacen.guardar(data);
   }
 
-  function estadoReto(id) {
-    var r = progresoDe(id);
-    if (!r) return "sin-iniciar";
-    return r.dias.every(function (d) { return d.guardado; }) ? "hecho" : "encurso";
+  function anadirDosis(nombre) {
+    var data = almacen.cargar(); var p = data.pruebas[nombre];
+    if (!p) return;
+    var n = p.dias.length;
+    var fechas = calcularFechas(p.dias[0] ? p.dias[0].fecha : aISO(new Date()), p.agenda, n + 1);
+    p.dias.push({ etiqueta: "Dosis " + (n + 1), cantidad: "", fecha: fechas[n] || "",
+      dolor: 0, hinchazon: 0, gases: 0, notas: "", registrado: false });
+    almacen.guardar(data);
+  }
+
+  function setConclusion(nombre, estado, dosisIndex) {
+    var data = almacen.cargar(); var p = data.pruebas[nombre];
+    if (!p) return;
+    p.conclusion = { estado: estado, dosisIndex: (dosisIndex == null ? null : Number(dosisIndex)) };
+    almacen.guardar(data);
+  }
+
+  function reiniciarPrueba(nombre) {
+    var data = almacen.cargar();
+    if (data.pruebas[nombre]) { delete data.pruebas[nombre]; almacen.guardar(data); }
   }
 
   /* ============================================================
@@ -1210,16 +1228,16 @@
   }
 
   // Lee el diario de Fase 2 de un grupo y devuelve el pico de síntomas por dosis.
-  function resumenFase2PorGrupo(id) {
-    var p = (almacen.cargar().retos || {})[id];
+  function resumenFase2PorGrupo(nombre) {
+    var p = pruebaDe(nombre);
     if (!p) return null;
     return {
-      alimento: p.alimentoElegido,
+      alimento: p.alimento,
       dias: p.dias.map(function (d) {
         return {
           etiqueta: d.etiqueta,
-          dosis: d.dosis,
-          guardado: d.guardado,
+          cantidad: d.cantidad,
+          registrado: d.registrado,
           pico: Math.max(d.dolor || 0, d.hinchazon || 0, d.gases || 0)
         };
       })
@@ -1227,12 +1245,12 @@
   }
 
   // Sugerencia (NO veredicto) de hasta qué dosis llegó sin síntomas altos (pico < 4).
-  function sugerirLimiteDosis(id) {
-    var r = resumenFase2PorGrupo(id);
+  function sugerirLimiteDosis(nombre) {
+    var r = resumenFase2PorGrupo(nombre);
     if (!r) return 1;
     var sug = 0;
     r.dias.forEach(function (d, i) {
-      if (d.guardado && d.pico < 4) sug = i + 1;
+      if (d.registrado && d.pico < 4) sug = i + 1;
     });
     return sug || 1;
   }
@@ -1252,21 +1270,24 @@
     var p;
     try { p = JSON.parse(json); } catch (e) { return false; }
     if (!p || typeof p !== "object") return false;
-    // Formato nuevo
-    if (p.fase2 && typeof p.fase2 === "object" && p.fase2.retos && typeof p.fase2.retos === "object") {
-      almacen.guardar({ version: p.fase2.version || 1, retos: p.fase2.retos });
-      if (p.fase3 && typeof p.fase3 === "object" && p.fase3.tolerancias && typeof p.fase3.tolerancias === "object") {
-        almacenF3.guardar({
-          version: p.fase3.version || 1,
-          tolerancias: p.fase3.tolerancias,
-          verSegunTolerancia: !!p.fase3.verSegunTolerancia
-        });
+    // Formato nuevo (envoltorio con fase2/fase3)
+    if (p.fase2 && typeof p.fase2 === "object") {
+      var f2 = p.fase2;
+      if (f2.pruebas || f2.retos) {
+        almacen.guardar(migrarFase2(f2));
+        if (p.fase3 && typeof p.fase3 === "object" && p.fase3.tolerancias && typeof p.fase3.tolerancias === "object") {
+          almacenF3.guardar({
+            version: p.fase3.version || 1,
+            tolerancias: p.fase3.tolerancias,
+            verSegunTolerancia: !!p.fase3.verSegunTolerancia
+          });
+        }
+        return true;
       }
-      return true;
     }
-    // Formato antiguo (solo Fase 2): no toca Fase 3
+    // Formato antiguo (solo Fase 2 pelado): no toca Fase 3
     if (p.retos && typeof p.retos === "object") {
-      almacen.guardar({ version: p.version || 1, retos: p.retos });
+      almacen.guardar(migrarFase2(p));
       return true;
     }
     return false;
@@ -1809,6 +1830,32 @@
     assert(almacen.importar('{"foo":1}') === false, "importar sin 'pruebas' ni 'retos' = false");
     assert(almacen.exportar() === antes, "import inválido no pisa datos");
 
+    // ---- FASE 2 v2: accesores por alimento ----
+    almacen._mem = { version: 2, pruebas: {} };
+    assert(pruebaDe("Cebolla") === null, "pruebaDe inexistente -> null");
+    assert(estadoPrueba("Cebolla") === "sin-iniciar", "sin prueba -> sin-iniciar");
+    iniciarPrueba("Cebolla", "2026-06-01", "alterna");
+    var pc = pruebaDe("Cebolla");
+    assert(pc && pc.dias.length === 3, "iniciarPrueba crea 3 dosis");
+    assert(pc.dias[2].fecha === "2026-06-05", "iniciarPrueba usa la agenda (alterna)");
+    assert(pc.dias[0].cantidad === "" && pc.dias[0].registrado === false, "dosis empieza vacía y sin registrar");
+    assert(estadoPrueba("Cebolla") === "encurso", "prueba iniciada sin conclusión -> encurso");
+    setCantidad("Cebolla", 0, "1 cucharadita");
+    assert(pruebaDe("Cebolla").dias[0].cantidad === "1 cucharadita", "setCantidad guarda la cantidad");
+    guardarDosis("Cebolla", 0, { dolor: 2, hinchazon: 1, gases: 0, notas: "ok" });
+    assert(pruebaDe("Cebolla").dias[0].registrado === true, "guardarDosis marca registrado");
+    assert(pruebaDe("Cebolla").dias[0].dolor === 2, "guardarDosis guarda el valor");
+    anadirDosis("Cebolla");
+    assert(pruebaDe("Cebolla").dias.length === 4, "anadirDosis añade una 4ª dosis");
+    assert(pruebaDe("Cebolla").dias[3].etiqueta === "Dosis 4", "la nueva dosis se etiqueta Dosis 4");
+    assert(pruebaDe("Cebolla").dias[3].fecha === "2026-06-07", "la nueva dosis sigue la agenda alterna");
+    setConclusion("Cebolla", "limite", 1);
+    assert(pruebaDe("Cebolla").conclusion.estado === "limite" && pruebaDe("Cebolla").conclusion.dosisIndex === 1,
+      "setConclusion guarda estado y dosisIndex");
+    assert(estadoPrueba("Cebolla") === "hecho", "con conclusión != sin -> hecho");
+    reiniciarPrueba("Cebolla");
+    assert(pruebaDe("Cebolla") === null, "reiniciarPrueba borra la prueba");
+
     // ---- FASE 3: persistencia ----
     almacenF3._mem = null;
     var f3 = almacenF3.cargar();
@@ -1862,41 +1909,41 @@
     assert(nivelPersonalizado(tomate, { "fructosa": { estado: "limite" } }) === null, "amarillo con límite no cambia (ya es amarillo)");
 
     // ---- FASE 3: resumen de Fase 2 + sugerencia de dosis ----
-    almacen._mem = { version: 1, retos: {} };
+    almacen._mem = { version: 2, pruebas: {} };
     almacenF3._mem = { version: 1, tolerancias: {}, verSegunTolerancia: false };
-    assert(resumenFase2PorGrupo("fructosa") === null, "resumenFase2PorGrupo sin diario devuelve null");
-    iniciarReto("fructosa", "Miel", "2026-06-01");
-    guardarDia("fructosa", 0, { dolor: 1, hinchazon: 2, gases: 0, notas: "" });
-    guardarDia("fructosa", 1, { dolor: 6, hinchazon: 3, gases: 1, notas: "" });
-    var rs = resumenFase2PorGrupo("fructosa");
+    assert(resumenFase2PorGrupo("Miel") === null, "resumenFase2PorGrupo sin diario devuelve null");
+    iniciarPrueba("Miel", "2026-06-01", "seguida");
+    guardarDosis("Miel", 0, { dolor: 1, hinchazon: 2, gases: 0, notas: "" });
+    guardarDosis("Miel", 1, { dolor: 6, hinchazon: 3, gases: 1, notas: "" });
+    var rs = resumenFase2PorGrupo("Miel");
     assert(rs && rs.alimento === "Miel", "resumenFase2PorGrupo devuelve el alimento probado");
     assert(rs.dias[0].pico === 2, "pico de la dosis 1 = máximo de los 3 síntomas");
     assert(rs.dias[1].pico === 6, "pico de la dosis 2 = máximo (6)");
-    assert(sugerirLimiteDosis("fructosa") === 1, "sugiere la última dosis sin síntomas altos (dosis 1)");
-    reiniciarReto("fructosa");
-    assert(sugerirLimiteDosis("fructosa") === 1, "sin diario, la sugerencia por defecto es 1");
+    assert(sugerirLimiteDosis("Miel") === 1, "sugiere la última dosis sin síntomas altos (dosis 1)");
+    reiniciarPrueba("Miel");
+    assert(sugerirLimiteDosis("Miel") === 1, "sin diario, la sugerencia por defecto es 1");
 
     // ---- FASE 3: copia de seguridad unificada ----
-    almacen._mem = { version: 1, retos: {} };
+    almacen._mem = { version: 2, pruebas: {} };
     almacenF3._mem = { version: 1, tolerancias: {}, verSegunTolerancia: false };
-    iniciarReto("lactosa", "Leche normal", "2026-06-01");
+    iniciarPrueba("Leche normal", "2026-06-01", "seguida");
     setTolerancia("lactosa", "tolera", null);
     var copia = exportarTodo();
-    almacen._mem = { version: 1, retos: {} };
+    almacen._mem = { version: 2, pruebas: {} };
     almacenF3._mem = { version: 1, tolerancias: {}, verSegunTolerancia: false };
     assert(importarTodo(copia) === true, "importarTodo (formato nuevo) funciona");
-    assert(progresoDe("lactosa") && progresoDe("lactosa").alimentoElegido === "Leche normal", "importarTodo restaura Fase 2");
+    assert(pruebaDe("Leche normal") && pruebaDe("Leche normal").alimento === "Leche normal", "importarTodo restaura Fase 2");
     assert(toleranciaDe("lactosa").estado === "tolera", "importarTodo restaura Fase 3");
     // formato antiguo: solo Fase 2 "pelado" ({version, retos})
-    almacen._mem = { version: 1, retos: {} };
+    almacen._mem = { version: 2, pruebas: {} };
     almacenF3._mem = { version: 1, tolerancias: { "manitol": { estado: "no" } }, verSegunTolerancia: false };
     var viejo = JSON.stringify({ version: 1, retos: { "gos": { alimentoElegido: "Garbanzos de bote", personalizado: false, fechaInicio: "2026-06-01", dias: [] } } });
     assert(importarTodo(viejo) === true, "importarTodo acepta copia antigua (solo Fase 2)");
-    assert(progresoDe("gos") && progresoDe("gos").alimentoElegido === "Garbanzos de bote", "copia antigua restaura Fase 2");
+    assert(pruebaDe("Garbanzos de bote") && pruebaDe("Garbanzos de bote").alimento === "Garbanzos de bote", "copia antigua restaura Fase 2");
     assert(toleranciaDe("manitol").estado === "no", "copia antigua NO pisa las tolerancias de Fase 3");
     assert(importarTodo("{ no es json") === false, "importarTodo con JSON inválido devuelve false");
     assert(importarTodo('{"foo":1}') === false, "importarTodo sin secciones reconocibles devuelve false");
-    almacen._mem = { version: 1, retos: {} };
+    almacen._mem = { version: 2, pruebas: {} };
     almacenF3._mem = { version: 1, tolerancias: {}, verSegunTolerancia: false };
 
     // ---- FASE 3: aplicarTolerancia (capa sobre DATOS) ----
@@ -1909,8 +1956,8 @@
     assert(ap[0]._antes === "rojo", "toggle on: guarda el nivel oficial en _antes");
     assert(muestra[0].nivel === "rojo", "aplicarTolerancia no muta el alimento original");
     almacenF3._mem = { version: 1, tolerancias: {}, verSegunTolerancia: false };
-    almacenF3._mem = null;                    // dejar limpio
-    almacen._mem = { version: 1, retos: {} }; // dejar limpio
+    almacenF3._mem = null;                      // dejar limpio
+    almacen._mem = { version: 2, pruebas: {} }; // dejar limpio
   }
 
   /* ============================================================
