@@ -1313,7 +1313,7 @@
   /* ============================================================
      FASE 2 · RENDER / UI
      ============================================================ */
-  var estadoFase2 = { retoAbierto: null, resumen: false };
+  var estadoFase2 = { texto: "", grupo: null, alimentoAbierto: null, resumen: false };
 
   function descargar(nombre, contenido) {
     try {
@@ -1354,7 +1354,7 @@
     });
     Array.prototype.forEach.call(v.querySelectorAll("[data-volver-f2]"), function (b) {
       b.addEventListener("click", function () {
-        estadoFase2.resumen = false; estadoFase2.retoAbierto = null;
+        estadoFase2.resumen = false; estadoFase2.alimentoAbierto = null;
         renderFase2(); window.scrollTo(0, 0);
       });
     });
@@ -1374,28 +1374,42 @@
     var v = document.getElementById("vista");
     if (!v) return;
     if (estadoFase2.resumen) { renderResumen(); return; }
-    if (estadoFase2.retoAbierto) { renderReto(estadoFase2.retoAbierto); return; }
+    if (estadoFase2.alimentoAbierto) { renderAlimentoReto(estadoFase2.alimentoAbierto); return; }
 
-    var cards = RETOS.map(function (r) {
-      var est = estadoReto(r.id);
-      var etiqueta = est === "hecho" ? "Completado" : est === "encurso" ? "En curso" : "Sin empezar";
+    var base = ordenarParaReintro(DATOS);
+    var resultados = base.filter(function (a) {
+      if (estadoFase2.grupo && gruposDeAlimento(a).indexOf(estadoFase2.grupo) === -1) return false;
+      if (!estadoFase2.texto) return true;
+      return buscar(estadoFase2.texto, [a], null, false).length === 1;
+    });
+
+    var chips = ["Fructosa","Lactosa","Sorbitol","Manitol","Fructanos","GOS"].map(function (g) {
+      return '<button class="chip' + (estadoFase2.grupo === g ? " activo" : "") +
+        '" data-fgrupo="' + escapeHTML(g) + '">' + escapeHTML(g) + "</button>";
+    }).join("");
+
+    var cards = resultados.map(function (a) {
+      var est = estadoPrueba(a.nombre);
+      var etiqueta = est === "hecho" ? "Completado" : est === "encurso" ? "En curso" : "";
       var cls = est === "hecho" ? "hecho" : est === "encurso" ? "encurso" : "";
-      var alim = (progresoDe(r.id) || {}).alimentoElegido ||
-        r.alimentos.filter(function (a) { return a.sugerido; })[0].nombre;
-      return '<button class="reto-card" data-reto="' + escapeHTML(r.id) + '">' +
-        '<div class="reto-info"><span class="reto-grupo">' + escapeHTML(r.grupo) + '</span>' +
-        '<span class="reto-sub">Prueba: ' + escapeHTML(alim) + ' · ' +
-        (r.agenda === "alterna" ? "días alternos" : "3 días seguidos") + '</span></div>' +
-        '<span class="estado ' + cls + '">' + etiqueta + '</span></button>';
+      var grupos = gruposDeAlimento(a);
+      var badge = grupos.length ? grupos.join(" · ") : "ya seguro 🟢";
+      return '<button class="reto-card" data-alim="' + escapeHTML(a.nombre) + '">' +
+        '<div class="reto-info"><span class="reto-grupo">' + emojiNivel(a.nivel) + ' ' + escapeHTML(a.nombre) + '</span>' +
+        '<span class="reto-sub">' + escapeHTML(badge) + '</span></div>' +
+        (etiqueta ? '<span class="estado ' + cls + '">' + etiqueta + '</span>' : '') + '</button>';
     }).join("");
 
     v.innerHTML =
       '<header><h1>🔄 Reintroducción</h1>' +
-      '<p class="aviso">Fase 2: prueba un grupo FODMAP cada vez en 3 dosis crecientes y registra tus síntomas. ' +
+      '<p class="aviso">Busca el alimento que te indique tu dietista, mira a qué grupo FODMAP pertenece y registra el reto. ' +
       'La app <strong>solo registra</strong>; la interpretación la haces con tu dietista.</p></header>' +
-      '<p class="intro">Elige un grupo para empezar. Entre un grupo y el siguiente, deja 2-3 días de descanso ' +
-      '(dieta baja en FODMAP) hasta que se calmen los síntomas.</p>' +
-      cards +
+      '<input id="qf2" type="search" inputmode="search" placeholder="Busca un alimento… (ej. cebolla)" ' +
+      'value="' + escapeHTML(estadoFase2.texto) + '" autocomplete="off" autocapitalize="off">' +
+      '<div class="chips"><button class="chip' + (estadoFase2.grupo === null ? " activo" : "") +
+      '" data-fgrupo="">Todos</button>' + chips + "</div>" +
+      '<p class="conteo">' + resultados.length + ' alimento' + (resultados.length === 1 ? "" : "s") + '</p>' +
+      (cards || '<p class="vacio">No se ha encontrado nada.</p>') +
       '<div class="btn-row">' +
         '<button class="btn sec" data-accion="resumen">📋 Ver resumen</button>' +
         '<button class="btn sec" data-accion="exportar">⬇️ Exportar copia</button>' +
@@ -1405,14 +1419,21 @@
         '<p class="aviso">⚠️ Tu navegador no permite guardar automáticamente. Usa "Exportar copia" para no perder los datos.</p>') +
       '<footer>Protocolo orientativo basado en Monash FODMAP. No sustituye a tu dietista.</footer>';
 
-    Array.prototype.forEach.call(v.querySelectorAll("[data-reto]"), function (b) {
-      b.addEventListener("click", function () {
-        estadoFase2.retoAbierto = b.getAttribute("data-reto");
-        renderFase2(); window.scrollTo(0, 0);
-      });
+    var q = document.getElementById("qf2");
+    if (q) q.addEventListener("input", function (e) {
+      estadoFase2.texto = e.target.value; renderFase2();
+      var n = document.getElementById("qf2"); if (n) { n.focus(); try { n.setSelectionRange(n.value.length, n.value.length); } catch (x) {} }
+    });
+    Array.prototype.forEach.call(v.querySelectorAll("[data-fgrupo]"), function (b) {
+      b.addEventListener("click", function () { estadoFase2.grupo = b.getAttribute("data-fgrupo") || null; renderFase2(); });
+    });
+    Array.prototype.forEach.call(v.querySelectorAll("[data-alim]"), function (b) {
+      b.addEventListener("click", function () { irAlimentoReto(b.getAttribute("data-alim")); });
     });
     wireAcciones(v);
   }
+
+  function irAlimentoReto(nombre) { estadoFase2.alimentoAbierto = nombre; renderFase2(); window.scrollTo(0, 0); }
 
   function bloqueDosisHTML(id, i, d) {
     function slider(clave, label, val) {
