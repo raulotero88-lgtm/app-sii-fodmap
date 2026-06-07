@@ -147,6 +147,8 @@
     .resumen-grupo table{width:100%;border-collapse:collapse;font-size:.85rem;margin-top:8px}
     .resumen-grupo th,.resumen-grupo td{border:1px solid var(--linea);padding:5px 6px;text-align:center}
     .resumen-grupo th{background:var(--sup-2);font-weight:600}
+    .conclusion{border:1px solid var(--linea);border-radius:12px;padding:12px;margin:12px 0;background:var(--sup)}
+    .autosave{display:inline-block;color:var(--verde,#2F8F6B);font-size:.85rem;margin:4px 0}
     /* ---- Fase 3 (personalización) ---- */
     .tol-card{border:1px solid var(--linea);border-radius:var(--radio);padding:14px;margin-bottom:12px;background:var(--sup);box-shadow:var(--sombra)}
     .tol-card h3{margin:0 0 4px;font-size:1.05rem}
@@ -1435,161 +1437,147 @@
 
   function irAlimentoReto(nombre) { estadoFase2.alimentoAbierto = nombre; renderFase2(); window.scrollTo(0, 0); }
 
-  function bloqueDosisHTML(id, i, d) {
+  function bloqueDosisHTML(nombre, i, d) {
     function slider(clave, label, val) {
       return '<div class="slider-row"><label>' + label +
         ' <span class="sval" data-sval="' + clave + '-' + i + '">' + val + '</span></label>' +
         '<input type="range" min="0" max="10" value="' + val +
         '" data-slider="' + clave + '" data-idx="' + i + '"></div>';
     }
-    return '<div class="dosis' + (d.guardado ? " guardado" : "") + '">' +
-      '<h4>' + escapeHTML(d.etiqueta) + ': ' + escapeHTML(d.dosis) + '</h4>' +
-      '<p class="fecha">📅 ' + escapeHTML(d.fecha || "sin fecha") + (d.guardado ? ' · ✅ guardado' : '') + '</p>' +
+    return '<div class="dosis' + (d.registrado ? " guardado" : "") + '">' +
+      '<h4>' + escapeHTML(d.etiqueta) + '</h4>' +
+      '<p class="fecha">📅 ' + escapeHTML(d.fecha || "sin fecha") + (d.registrado ? ' · ✅ guardado' : '') + '</p>' +
+      '<label>Cantidad (la que te indique tu dietista)' +
+      '<input type="text" class="alim" data-cant="' + i + '" value="' + escapeHTML(d.cantidad || "") +
+      '" placeholder="ej. 1/2 tostada" autocomplete="off"></label>' +
       slider("dolor", "Dolor", d.dolor) +
       slider("hinchazon", "Hinchazón", d.hinchazon) +
       slider("gases", "Gases", d.gases) +
-      '<textarea class="notas" data-notas="' + i + '" placeholder="Notas (opcional): cuándo, cómo de fuerte…">' +
+      '<textarea class="notas" data-notas="' + i + '" placeholder="Notas (opcional)">' +
       escapeHTML(d.notas || "") + '</textarea>' +
-      '<div class="btn-row"><button class="btn" data-guardar="' + i + '">Guardar ' + escapeHTML(d.etiqueta) + '</button></div>' +
       '</div>';
   }
 
-  function renderReto(id) {
+  var CONCL_ETIQUETAS = { sin:"Sin concluir", tolera:"Tolero", limite:"Tolero con límite", no:"No tolero" };
+
+  function renderAlimentoReto(nombre) {
     var v = document.getElementById("vista");
     if (!v) return;
-    var reto = RETOS.filter(function (r) { return r.id === id; })[0];
-    if (!reto) { estadoFase2.retoAbierto = null; renderFase2(); return; }
-    var prog = progresoDe(id);
-    var cuerpo;
+    var a = DATOS.filter(function (x) { return x.nombre === nombre; })[0];
+    if (!a) { estadoFase2.alimentoAbierto = null; renderFase2(); return; }
+    var grupos = gruposDeAlimento(a);
+    var agenda = agendaDeAlimento(a);
+    var prueba = pruebaDe(nombre);
 
-    if (!prog) {
-      var opciones = reto.alimentos.map(function (a) {
-        return '<option value="' + escapeHTML(a.nombre) + '"' + (a.sugerido ? " selected" : "") + '>' +
-          escapeHTML(a.nombre) + (a.sugerido ? " (recomendado)" : "") +
-          ' — ' + escapeHTML(a.dosis.join(" / ")) + '</option>';
-      }).join("");
-      opciones += '<option value="__custom__">✏️ Otro alimento (lo escribo yo)…</option>';
+    var avisoGrupo = grupos.length === 0
+      ? '<div class="lavado">Este alimento ya es seguro 🟢; normalmente no necesita reintroducción, pero puedes registrarlo igualmente.</div>'
+      : (grupos.length > 1
+        ? '<div class="lavado">⚠️ Este alimento tiene varios FODMAP (' + escapeHTML(grupos.join(", ")) +
+          '); una reacción puede deberse a cualquiera de ellos.</div>'
+        : '<div class="lavado">' + escapeHTML((GRUPOS_META[grupos[0]] || {}).nota || "") + '</div>');
+    var agendaTxt = '<div class="lavado">' + (agenda === "alterna"
+      ? "Se prueba en <strong>días alternos</strong> (día 1, 3, 5…): los síntomas pueden tardar hasta 48 h."
+      : "Se prueba en <strong>días seguidos</strong> con cantidades crecientes.") + '</div>';
+
+    var cuerpo;
+    if (!prueba) {
       var hoy = aISO(new Date());
-      cuerpo =
-        '<p class="intro">' + escapeHTML(reto.nota) + '</p>' +
-        '<label>Alimento de prueba' +
-        '<select class="alim" id="alimSel">' + opciones + '</select></label>' +
-        '<div id="notaAlim"></div>' +
-        '<div id="customWrap" hidden>' +
-          '<label>Nombre de tu alimento' +
-          '<input type="text" id="customNombre" class="alim" placeholder="ej. Aguacate" autocomplete="off"></label>' +
-          '<label>Dosis 1 (pequeña)' +
-          '<input type="text" id="customD0" class="alim" placeholder="ej. 1/2 tostada" autocomplete="off"></label>' +
-          '<label>Dosis 2 (media)' +
-          '<input type="text" id="customD1" class="alim" placeholder="ej. 1 tostada" autocomplete="off"></label>' +
-          '<label>Dosis 3 (grande)' +
-          '<input type="text" id="customD2" class="alim" placeholder="ej. 2 tostadas" autocomplete="off"></label>' +
-          '<p class="reto-sub">Pon las 3 cantidades crecientes que te haya indicado tu dietista.</p>' +
-        '</div>' +
-        '<label>Fecha de la primera dosis' +
-        '<input type="date" id="fechaSel" class="alim" value="' + hoy + '"></label>' +
-        '<div class="btn-row"><button class="btn" data-empezar="1">Empezar reto</button></div>' +
-        '<div class="lavado">' + (reto.agenda === "alterna"
-          ? "Este grupo se prueba en <strong>días alternos</strong> (día 1, 3 y 5): los síntomas de fructanos/GOS pueden tardar hasta 48 h."
-          : "Este grupo se prueba en <strong>3 días seguidos</strong> con dosis crecientes.") + '</div>';
+      cuerpo = avisoGrupo + agendaTxt +
+        '<label>Fecha de la primera dosis<input type="date" id="fechaSel" class="alim" value="' + hoy + '"></label>' +
+        '<div class="btn-row"><button class="btn" data-empezar="1">Empezar registro</button></div>';
     } else {
-      var dias = prog.dias.map(function (d, i) { return bloqueDosisHTML(id, i, d); }).join("");
-      var alElegido = reto.alimentos.filter(function (a) { return a.nombre === prog.alimentoElegido; })[0];
-      var notaAl = (alElegido && alElegido.nota)
-        ? '<div class="lavado">ℹ️ ' + escapeHTML(alElegido.nota) + '</div>' : "";
-      cuerpo =
-        '<p class="intro">Alimento: <strong>' + escapeHTML(prog.alimentoElegido) + '</strong>' +
-        (prog.personalizado ? ' (personalizado)' : '') + '. ' +
-        escapeHTML(reto.nota) + '</p>' +
-        notaAl +
-        dias +
-        '<div class="lavado">Tras la última dosis, vuelve a dieta baja en FODMAP <strong>2-3 días</strong> ' +
-        '(hasta que se calmen los síntomas) antes de probar el siguiente grupo.</div>' +
-        '<div class="btn-row"><button class="btn peligro" data-reiniciar="' + escapeHTML(id) + '">Reiniciar este reto</button></div>';
+      var dias = prueba.dias.map(function (d, i) { return bloqueDosisHTML(nombre, i, d); }).join("");
+      var concl = prueba.conclusion || { estado: "sin", dosisIndex: null };
+      var opcsEstado = ["sin","tolera","limite","no"].map(function (e) {
+        return '<option value="' + e + '"' + (concl.estado === e ? " selected" : "") + '>' + CONCL_ETIQUETAS[e] + '</option>';
+      }).join("");
+      var opcsDosis = prueba.dias.map(function (d, i) {
+        return '<option value="' + i + '"' + (concl.dosisIndex === i ? " selected" : "") + '>' +
+          escapeHTML(d.etiqueta + (d.cantidad ? " — " + d.cantidad : "")) + '</option>';
+      }).join("");
+      cuerpo = avisoGrupo + agendaTxt + dias +
+        '<div class="btn-row"><button class="btn sec" data-anadir="1">➕ Añadir dosis</button></div>' +
+        '<div class="conclusion"><h4>Tu conclusión</h4>' +
+        '<label>¿Lo toleras?<select class="alim" id="conclEstado">' + opcsEstado + '</select></label>' +
+        '<label id="conclDosisWrap"' + (concl.estado === "limite" ? "" : " hidden") +
+        '>¿Hasta qué cantidad?<select class="alim" id="conclDosis">' + opcsDosis + '</select></label></div>' +
+        '<span class="autosave" id="autosave" hidden>guardado ✓</span>' +
+        '<div class="btn-row"><button class="btn peligro" data-reiniciar="1">Reiniciar este alimento</button></div>';
     }
 
     v.innerHTML =
-      '<button class="volver" data-volver-f2="1">‹ Volver a los grupos</button>' +
-      '<div class="ficha-cab"><h2>' + escapeHTML(reto.grupo) + '</h2>' +
-      '<p class="ficha-cat">FODMAP: ' + escapeHTML(reto.fodmap) + '</p></div>' +
+      '<button class="volver" data-volver-f2="1">‹ Volver a la lista</button>' +
+      fichaHTML(a).replace('<button class="volver" data-volver="1">‹ Volver a la búsqueda</button>', '') +
+      '<div class="ficha-cab"><h2>Reintroducción</h2>' +
+      '<p class="ficha-cat">Grupo: ' + escapeHTML(grupos.length ? grupos.join(" · ") : "ninguno (ya seguro)") + '</p></div>' +
       cuerpo;
 
-    var sel = document.getElementById("alimSel");
-    if (sel) {
-      var actualizarSel = function () {
-        var wrap = document.getElementById("customWrap");
-        var notaDiv = document.getElementById("notaAlim");
-        if (sel.value === "__custom__") {
-          if (wrap) wrap.hidden = false;
-          if (notaDiv) notaDiv.innerHTML = "";
-        } else {
-          if (wrap) wrap.hidden = true;
-          var al = reto.alimentos.filter(function (a) { return a.nombre === sel.value; })[0];
-          if (notaDiv) notaDiv.innerHTML = (al && al.nota)
-            ? '<div class="lavado">ℹ️ ' + escapeHTML(al.nota) + '</div>' : "";
-        }
-      };
-      sel.addEventListener("change", actualizarSel);
-      actualizarSel();
-    }
+    wireDetalleReto(v, nombre, a, agenda);
+  }
 
+  function flashAutosave() {
+    var s = document.getElementById("autosave");
+    if (!s) return; s.hidden = false;
+  }
+
+  function wireDetalleReto(v, nombre, a, agenda) {
     var emp = v.querySelector("[data-empezar]");
     if (emp) emp.addEventListener("click", function () {
-      var selEl = document.getElementById("alimSel");
       var fch = document.getElementById("fechaSel");
       var fecha = (fch && fch.value) ? fch.value : aISO(new Date());
-      if (selEl && selEl.value === "__custom__") {
-        function val(idc) { var e = document.getElementById(idc); return e ? e.value.trim() : ""; }
-        var nombre = val("customNombre");
-        if (!nombre) { window.alert("Escribe el nombre de tu alimento."); return; }
-        var dosis = [
-          val("customD0") || "Dosis pequeña",
-          val("customD1") || "Dosis media",
-          val("customD2") || "Dosis grande"
-        ];
-        iniciarReto(id, nombre, fecha, dosis);
-      } else {
-        var alim = selEl ? selEl.value : reto.alimentos[0].nombre;
-        iniciarReto(id, alim, fecha);
-      }
+      iniciarPrueba(nombre, fecha, agenda, 3);
       renderFase2(); window.scrollTo(0, 0);
     });
 
     Array.prototype.forEach.call(v.querySelectorAll("input[data-slider]"), function (s) {
       s.addEventListener("input", function () {
-        var span = v.querySelector('[data-sval="' + s.getAttribute("data-slider") + "-" + s.getAttribute("data-idx") + '"]');
+        var idx = Number(s.getAttribute("data-idx"));
+        var span = v.querySelector('[data-sval="' + s.getAttribute("data-slider") + "-" + idx + '"]');
         if (span) span.textContent = s.value;
+        function valor(clave) { var el = v.querySelector('input[data-slider="' + clave + '"][data-idx="' + idx + '"]'); return el ? Number(el.value) : 0; }
+        guardarDosis(nombre, idx, { dolor: valor("dolor"), hinchazon: valor("hinchazon"), gases: valor("gases") });
+        flashAutosave();
       });
     });
 
-    Array.prototype.forEach.call(v.querySelectorAll("[data-guardar]"), function (b) {
-      b.addEventListener("click", function () {
-        var idx = Number(b.getAttribute("data-guardar"));
-        function valor(clave) {
-          var el = v.querySelector('input[data-slider="' + clave + '"][data-idx="' + idx + '"]');
-          return el ? Number(el.value) : 0;
-        }
-        var notasEl = v.querySelector('[data-notas="' + idx + '"]');
-        guardarDia(id, idx, {
-          dolor: valor("dolor"), hinchazon: valor("hinchazon"), gases: valor("gases"),
-          notas: notasEl ? notasEl.value : ""
-        });
-        renderFase2(); window.scrollTo(0, 0);
+    Array.prototype.forEach.call(v.querySelectorAll("[data-cant]"), function (inp) {
+      inp.addEventListener("input", function () {
+        setCantidad(nombre, Number(inp.getAttribute("data-cant")), inp.value); flashAutosave();
       });
     });
+
+    Array.prototype.forEach.call(v.querySelectorAll("[data-notas]"), function (ta) {
+      var t = null;
+      ta.addEventListener("input", function () {
+        if (t) clearTimeout(t);
+        t = setTimeout(function () {
+          guardarDosis(nombre, Number(ta.getAttribute("data-notas")), { notas: ta.value }); flashAutosave();
+        }, 400);
+      });
+    });
+
+    var anad = v.querySelector("[data-anadir]");
+    if (anad) anad.addEventListener("click", function () { anadirDosis(nombre); renderFase2(); });
+
+    var ce = document.getElementById("conclEstado");
+    if (ce) ce.addEventListener("change", function () {
+      var dosisWrap = document.getElementById("conclDosisWrap");
+      var dosisSel = document.getElementById("conclDosis");
+      var di = (ce.value === "limite" && dosisSel) ? Number(dosisSel.value) : null;
+      if (dosisWrap) dosisWrap.hidden = (ce.value !== "limite");
+      setConclusion(nombre, ce.value, di); flashAutosave();
+      renderFase2();
+    });
+    var cd = document.getElementById("conclDosis");
+    if (cd) cd.addEventListener("change", function () { setConclusion(nombre, "limite", Number(cd.value)); flashAutosave(); });
 
     var rei = v.querySelector("[data-reiniciar]");
     if (rei) rei.addEventListener("click", function () {
-      if (window.confirm("¿Borrar los datos de este reto y empezar de nuevo?")) {
-        reiniciarReto(id);
-        renderFase2(); window.scrollTo(0, 0);
-      }
+      if (window.confirm("¿Borrar los datos de este alimento y empezar de nuevo?")) { reiniciarPrueba(nombre); renderFase2(); window.scrollTo(0, 0); }
     });
 
     Array.prototype.forEach.call(v.querySelectorAll("[data-volver-f2]"), function (b) {
-      b.addEventListener("click", function () {
-        estadoFase2.retoAbierto = null; renderFase2(); window.scrollTo(0, 0);
-      });
+      b.addEventListener("click", function () { estadoFase2.alimentoAbierto = null; renderFase2(); window.scrollTo(0, 0); });
     });
   }
 
