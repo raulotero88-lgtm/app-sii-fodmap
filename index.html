@@ -1137,61 +1137,32 @@
      estado ∈ "sin_probar" | "tolera" | "limite" | "no"
      ============================================================ */
   var STORAGE_KEY_F3 = "sii_fodmap_fase3_v1";
+
+  function migrarFase3(p) {
+    if (!p || typeof p !== "object") return { version: 2, manuales: {}, verSegunTolerancia: false };
+    if (p.version === 2 && p.manuales) return p;
+    return { version: 2, manuales: {}, verSegunTolerancia: !!p.verSegunTolerancia,
+      tolerancias_legacy: (p.tolerancias && typeof p.tolerancias === "object") ? p.tolerancias : undefined };
+  }
+
   var almacenF3 = {
     _mem: null,
     cargar: function () {
       if (this._mem) return this._mem;
-      var base = { version: 1, tolerancias: {}, verSegunTolerancia: false };
-      try {
-        var raw = localStorage.getItem(STORAGE_KEY_F3);
-        if (raw) {
-          var p = JSON.parse(raw);
-          if (p && p.tolerancias && typeof p.tolerancias === "object") {
-            base = { version: p.version || 1, tolerancias: p.tolerancias,
-                     verSegunTolerancia: !!p.verSegunTolerancia };
-          }
-        }
-      } catch (e) {}
-      this._mem = base;
-      return base;
+      var base = { version: 2, manuales: {}, verSegunTolerancia: false };
+      try { var raw = localStorage.getItem(STORAGE_KEY_F3); if (raw) base = migrarFase3(JSON.parse(raw)); } catch (e) {}
+      this._mem = base; return base;
     },
-    guardar: function (data) {
-      this._mem = data;
-      try { localStorage.setItem(STORAGE_KEY_F3, JSON.stringify(data)); return true; }
-      catch (e) { return false; }
-    }
+    guardar: function (data) { this._mem = data; try { localStorage.setItem(STORAGE_KEY_F3, JSON.stringify(data)); return true; } catch (e) { return false; } }
   };
 
-  function toleranciaDe(id) {
-    var t = almacenF3.cargar().tolerancias[id];
-    return t || { estado: "sin_probar", limiteDosis: null };
+  function manualDe(nombre) { var m = almacenF3.cargar().manuales; return (m && m[nombre]) ? m[nombre] : null; }
+  function manualesLista() { var m = almacenF3.cargar().manuales || {}; return Object.keys(m).map(function (k) { return { nombre: k, estado: m[k].estado, cantidad: m[k].cantidad, nota: m[k].nota }; }); }
+  function setManual(nombre, estado, cantidad, nota) {
+    var d = almacenF3.cargar(); d.manuales[nombre] = { estado: estado, cantidad: cantidad || "", nota: nota || "" }; almacenF3.guardar(d);
   }
-
-  function setTolerancia(id, estado, limiteDosis) {
-    var data = almacenF3.cargar();
-    if (estado === "sin_probar") {
-      delete data.tolerancias[id];
-    } else {
-      data.tolerancias[id] = {
-        estado: estado,
-        limiteDosis: estado === "limite" ? (limiteDosis || 1) : null
-      };
-    }
-    almacenF3.guardar(data);
-  }
-
-  function setVerSegunTolerancia(v) {
-    var data = almacenF3.cargar();
-    data.verSegunTolerancia = !!v;
-    almacenF3.guardar(data);
-  }
-
-  function hayAlgunaTolerancia() {
-    var t = almacenF3.cargar().tolerancias;
-    return Object.keys(t).some(function (k) {
-      return t[k] && (t[k].estado === "tolera" || t[k].estado === "limite");
-    });
-  }
+  function borrarManual(nombre) { var d = almacenF3.cargar(); if (d.manuales[nombre]) { delete d.manuales[nombre]; almacenF3.guardar(d); } }
+  function setVerSegunTolerancia(on) { var d = almacenF3.cargar(); d.verSegunTolerancia = !!on; almacenF3.guardar(d); }
 
   // Severidad: tolera (mejor) < limite < no/sin_probar (peor)
   function rangoEstado(e) {
@@ -1248,41 +1219,16 @@
     return out;
   }
 
-  // Copia de seguridad unificada: Fase 2 + Fase 3 en un solo objeto.
-  function exportarTodo() {
-    return JSON.stringify({
-      app: "sii-fodmap",
-      fase2: almacen.cargar(),
-      fase3: almacenF3.cargar()
-    }, null, 2);
-  }
-
-  // Importa el formato nuevo {app, fase2, fase3} o el antiguo {version, retos}.
-  // Devuelve true si aplicó algo; false si el JSON no es reconocible (no pisa nada).
+  function exportarTodo() { return JSON.stringify({ app: "sii-fodmap", fase2: almacen.cargar(), fase3: almacenF3.cargar() }, null, 2); }
   function importarTodo(json) {
-    var p;
-    try { p = JSON.parse(json); } catch (e) { return false; }
+    var p; try { p = JSON.parse(json); } catch (e) { return false; }
     if (!p || typeof p !== "object") return false;
-    // Formato nuevo (envoltorio con fase2/fase3)
-    if (p.fase2 && typeof p.fase2 === "object") {
-      var f2 = p.fase2;
-      if (f2.pruebas || f2.retos) {
-        almacen.guardar(migrarFase2(f2));
-        if (p.fase3 && typeof p.fase3 === "object" && p.fase3.tolerancias && typeof p.fase3.tolerancias === "object") {
-          almacenF3.guardar({
-            version: p.fase3.version || 1,
-            tolerancias: p.fase3.tolerancias,
-            verSegunTolerancia: !!p.fase3.verSegunTolerancia
-          });
-        }
-        return true;
-      }
-    }
-    // Formato antiguo (solo Fase 2 pelado): no toca Fase 3
-    if (p.retos && typeof p.retos === "object") {
-      almacen.guardar(migrarFase2(p));
+    if (p.fase2 && (p.fase2.pruebas || p.fase2.retos)) {
+      almacen.guardar(migrarFase2(p.fase2));
+      if (p.fase3 && typeof p.fase3 === "object") almacenF3.guardar(migrarFase3(p.fase3));
       return true;
     }
+    if (p.pruebas || p.retos) { almacen.guardar(migrarFase2(p)); return true; }
     return false;
   }
 
@@ -1871,26 +1817,25 @@
     assert(listaOrd[0].nombre !== "Zanahoria", "los verdes no van primero");
     assert(listaOrd[listaOrd.length - 1].nombre === "Zanahoria", "el verde queda al final");
 
-    // ---- FASE 3: persistencia ----
-    almacenF3._mem = null;
+    // ---- FASE 3 v2: manuales ----
+    almacenF3._mem = null; try { localStorage.removeItem("sii_fodmap_fase3_v1"); } catch (e) {}
     var f3 = almacenF3.cargar();
-    assert(f3 && f3.tolerancias && typeof f3.tolerancias === "object", "F3 cargar sin datos da estructura vacía válida");
-    assert(f3.verSegunTolerancia === false, "F3 verSegunTolerancia por defecto es false");
-    assert(toleranciaDe("fructosa").estado === "sin_probar", "tolerancia por defecto es sin_probar");
-    setTolerancia("fructosa", "tolera", null);
-    assert(toleranciaDe("fructosa").estado === "tolera", "setTolerancia guarda 'tolera'");
-    setTolerancia("lactosa", "limite", 2);
-    assert(toleranciaDe("lactosa").estado === "limite" && toleranciaDe("lactosa").limiteDosis === 2, "setTolerancia 'limite' guarda la dosis");
-    setTolerancia("lactosa", "sin_probar", null);
-    assert(toleranciaDe("lactosa").estado === "sin_probar", "marcar sin_probar borra la tolerancia");
-    assert(hayAlgunaTolerancia() === true, "hayAlgunaTolerancia detecta una tolerancia guardada");
-    setVerSegunTolerancia(true);
-    assert(almacenF3.cargar().verSegunTolerancia === true, "setVerSegunTolerancia persiste el toggle");
-    almacenF3._mem = { version: 1, tolerancias: {}, verSegunTolerancia: false };
-    assert(hayAlgunaTolerancia() === false, "sin tolerancias, hayAlgunaTolerancia es false");
-    setTolerancia("manitol", "no", null);
-    assert(hayAlgunaTolerancia() === false, "solo 'No tolero' no activa el interruptor (nada que re-colorear)");
-    almacenF3._mem = { version: 1, tolerancias: {}, verSegunTolerancia: false };
+    assert(f3 && f3.version === 2 && f3.manuales && typeof f3.manuales === "object", "F3 v2 estructura vacía");
+    assert(f3.verSegunTolerancia === false, "verSegunTolerancia por defecto false");
+    setManual("Pasta", "tolera", "", "me sienta bien");
+    assert(manualDe("Pasta").estado === "tolera", "setManual guarda 'tolera'");
+    assert(manualesLista().length === 1, "manualesLista devuelve 1");
+    setManual("Pasta", "limite", "1 plato", "");
+    assert(manualDe("Pasta").estado === "limite" && manualDe("Pasta").cantidad === "1 plato", "setManual actualiza");
+    borrarManual("Pasta");
+    assert(manualDe("Pasta") === null, "borrarManual elimina");
+    almacenF3._mem = null;
+    localStorage.setItem("sii_fodmap_fase3_v1", JSON.stringify({ version:1, tolerancias:{ "fructosa":{estado:"tolera"} }, verSegunTolerancia:true }));
+    var mg = almacenF3.cargar();
+    assert(mg.version === 2 && mg.manuales && Object.keys(mg.manuales).length === 0, "migración F3: manuales vacío");
+    assert(mg.verSegunTolerancia === true, "migración F3 conserva el interruptor");
+    assert(mg.tolerancias_legacy && mg.tolerancias_legacy.fructosa, "migración F3 conserva lo viejo en tolerancias_legacy");
+    almacenF3._mem = { version:2, manuales:{}, verSegunTolerancia:false };
 
     // ---- FASE 3: lógica de re-coloreado (pura) ----
     assert(peorEstado("tolera", "limite") === "limite", "peorEstado: limite peor que tolera");
@@ -1937,28 +1882,21 @@
     assert(fila.conclusion.estado === "limite", "el resumen incluye la conclusión");
     almacen._mem = { version: 2, pruebas: {} };
 
-    // ---- FASE 3: copia de seguridad unificada ----
-    almacen._mem = { version: 2, pruebas: {} };
-    almacenF3._mem = { version: 1, tolerancias: {}, verSegunTolerancia: false };
-    iniciarPrueba("Leche normal", "2026-06-01", "seguida");
-    setTolerancia("lactosa", "tolera", null);
+    // ---- COPIA unificada v2 ----
+    almacen._mem = { version: 2, pruebas: {} }; almacenF3._mem = { version: 2, manuales: {}, verSegunTolerancia: false };
+    iniciarPrueba("Leche normal", "2026-06-01", "seguida"); setManual("Pasta", "tolera", "", "");
     var copia = exportarTodo();
+    almacen._mem = { version: 2, pruebas: {} }; almacenF3._mem = { version: 2, manuales: {}, verSegunTolerancia: false };
+    assert(importarTodo(copia) === true, "importarTodo v2 funciona");
+    assert(pruebaDe("Leche normal") && pruebaDe("Leche normal").alimento === "Leche normal", "restaura Fase 2");
+    assert(manualDe("Pasta") && manualDe("Pasta").estado === "tolera", "restaura Fase 3 manuales");
+    var viejo = JSON.stringify({ version: 1, retos: { "gos": { alimentoElegido: "Garbanzos de bote", dias: [] } } });
     almacen._mem = { version: 2, pruebas: {} };
-    almacenF3._mem = { version: 1, tolerancias: {}, verSegunTolerancia: false };
-    assert(importarTodo(copia) === true, "importarTodo (formato nuevo) funciona");
-    assert(pruebaDe("Leche normal") && pruebaDe("Leche normal").alimento === "Leche normal", "importarTodo restaura Fase 2");
-    assert(toleranciaDe("lactosa").estado === "tolera", "importarTodo restaura Fase 3");
-    // formato antiguo: solo Fase 2 "pelado" ({version, retos})
-    almacen._mem = { version: 2, pruebas: {} };
-    almacenF3._mem = { version: 1, tolerancias: { "manitol": { estado: "no" } }, verSegunTolerancia: false };
-    var viejo = JSON.stringify({ version: 1, retos: { "gos": { alimentoElegido: "Garbanzos de bote", personalizado: false, fechaInicio: "2026-06-01", dias: [] } } });
-    assert(importarTodo(viejo) === true, "importarTodo acepta copia antigua (solo Fase 2)");
-    assert(pruebaDe("Garbanzos de bote") && pruebaDe("Garbanzos de bote").alimento === "Garbanzos de bote", "copia antigua restaura Fase 2");
-    assert(toleranciaDe("manitol").estado === "no", "copia antigua NO pisa las tolerancias de Fase 3");
-    assert(importarTodo("{ no es json") === false, "importarTodo con JSON inválido devuelve false");
-    assert(importarTodo('{"foo":1}') === false, "importarTodo sin secciones reconocibles devuelve false");
-    almacen._mem = { version: 2, pruebas: {} };
-    almacenF3._mem = { version: 1, tolerancias: {}, verSegunTolerancia: false };
+    assert(importarTodo(viejo) === true, "importarTodo acepta copia antigua (v1)");
+    assert(pruebaDe("Garbanzos de bote"), "copia antigua migra a pruebas");
+    assert(importarTodo("{ no es json") === false, "JSON inválido -> false");
+    assert(importarTodo('{"foo":1}') === false, "sin secciones -> false");
+    almacen._mem = { version: 2, pruebas: {} }; almacenF3._mem = { version: 2, manuales: {}, verSegunTolerancia: false };
 
     // ---- FASE 3: aplicarTolerancia (capa sobre DATOS) ----
     almacenF3._mem = { version: 1, tolerancias: {}, verSegunTolerancia: false };
