@@ -1229,32 +1229,23 @@
     return { nivel: "verde", nota: "Según tu tolerancia." };
   }
 
-  // Lee el diario de Fase 2 de un grupo y devuelve el pico de síntomas por dosis.
-  function resumenFase2PorGrupo(nombre) {
-    var p = pruebaDe(nombre);
-    if (!p) return null;
-    return {
-      alimento: p.alimento,
-      dias: p.dias.map(function (d) {
-        return {
-          etiqueta: d.etiqueta,
-          cantidad: d.cantidad,
-          registrado: d.registrado,
-          pico: Math.max(d.dolor || 0, d.hinchazon || 0, d.gases || 0)
-        };
-      })
-    };
-  }
+  function pico(d) { return Math.max(d.dolor || 0, d.hinchazon || 0, d.gases || 0); }
 
-  // Sugerencia (NO veredicto) de hasta qué dosis llegó sin síntomas altos (pico < 4).
-  function sugerirLimiteDosis(nombre) {
-    var r = resumenFase2PorGrupo(nombre);
-    if (!r) return 1;
-    var sug = 0;
-    r.dias.forEach(function (d, i) {
-      if (d.registrado && d.pico < 4) sug = i + 1;
+  function resumenPorGrupo(datos) {
+    var out = {};
+    ["Fructosa","Lactosa","Sorbitol","Manitol","Fructanos","GOS","Otros"].forEach(function (g) { out[g] = []; });
+    var data = almacen.cargar();
+    Object.keys(data.pruebas || {}).forEach(function (nombre) {
+      var p = data.pruebas[nombre];
+      var al = datos.filter(function (x) { return x.nombre === nombre; })[0];
+      var grupos = al ? gruposDeAlimento(al) : [];
+      if (!grupos.length) grupos = ["Otros"];
+      var fila = { alimento: nombre,
+        dias: p.dias.map(function (d) { return { etiqueta: d.etiqueta, cantidad: d.cantidad, pico: pico(d), registrado: d.registrado }; }),
+        conclusion: p.conclusion || { estado: "sin", dosisIndex: null } };
+      grupos.forEach(function (g) { if (out[g]) out[g].push(fila); });
     });
-    return sug || 1;
+    return out;
   }
 
   // Copia de seguridad unificada: Fase 2 + Fase 3 en un solo objeto.
@@ -1584,28 +1575,24 @@
   function renderResumen() {
     var v = document.getElementById("vista");
     if (!v) return;
-    var data = almacen.cargar();
-    var bloques = RETOS.map(function (r) {
-      var p = data.retos[r.id];
-      if (!p) return "";
-      var filas = p.dias.map(function (d) {
-        return '<tr><td>' + escapeHTML(d.etiqueta) + '</td><td>' + escapeHTML(d.dosis) + '</td>' +
-          '<td>' + d.dolor + '</td><td>' + d.hinchazon + '</td><td>' + d.gases + '</td></tr>' +
-          (d.notas ? '<tr><td colspan="5" style="text-align:left">📝 ' + escapeHTML(d.notas) + '</td></tr>' : '');
+    var rg = resumenPorGrupo(DATOS);
+    var bloques = Object.keys(rg).filter(function (g) { return rg[g].length; }).map(function (g) {
+      var filas = rg[g].map(function (f) {
+        var celdas = f.dias.map(function (d) {
+          return '<td>' + escapeHTML(d.cantidad || d.etiqueta) + '<br><span class="' + (d.pico >= 4 ? "alto" : "") + '">pico ' + d.pico + '</span></td>';
+        }).join("");
+        return '<tr><th>' + escapeHTML(f.alimento) + '<br><small>' + escapeHTML(CONCL_ETIQUETAS[f.conclusion.estado]) + '</small></th>' + celdas + '</tr>';
       }).join("");
-      return '<div class="resumen-grupo"><h3>' + escapeHTML(r.grupo) + '</h3>' +
-        '<p class="reto-sub">Alimento: ' + escapeHTML(p.alimentoElegido) + '</p>' +
-        '<table><tr><th>Dosis</th><th>Cantidad</th><th>Dolor</th><th>Hinch.</th><th>Gases</th></tr>' +
-        filas + '</table></div>';
+      return '<div class="resumen-grupo"><h3>' + escapeHTML(g) + '</h3><table>' + filas + '</table></div>';
     }).join("");
-
     v.innerHTML =
       '<button class="volver" data-volver-f2="1">‹ Volver</button>' +
-      '<h2>📋 Resumen para el dietista</h2>' +
-      '<p class="intro">Síntomas registrados por dosis (escala 0-10). La app no interpreta los resultados.</p>' +
-      (bloques || '<p class="vacio">Aún no has registrado ningún grupo.</p>') +
-      '<div class="btn-row"><button class="btn sec" data-accion="exportar">⬇️ Exportar copia</button></div>';
-    wireAcciones(v);
+      '<header><h1>📋 Resumen</h1><p class="aviso">Para enseñar a tu dietista. La app registra, no diagnostica.</p></header>' +
+      (bloques || '<p class="vacio">Aún no has registrado ningún alimento.</p>') +
+      '<footer>Picos 0-10 (máximo de dolor/hinchazón/gases por dosis).</footer>';
+    Array.prototype.forEach.call(v.querySelectorAll("[data-volver-f2]"), function (b) {
+      b.addEventListener("click", function () { estadoFase2.resumen = false; renderFase2(); window.scrollTo(0, 0); });
+    });
   }
 
   /* ============================================================
@@ -1936,20 +1923,19 @@
     assert(nivelPersonalizado(tomate, { "fructosa": { estado: "tolera" } }).nivel === "verde", "amarillo->verde si tolera su único FODMAP");
     assert(nivelPersonalizado(tomate, { "fructosa": { estado: "limite" } }) === null, "amarillo con límite no cambia (ya es amarillo)");
 
-    // ---- FASE 3: resumen de Fase 2 + sugerencia de dosis ----
+    // ---- REINTRO: resumen por grupo ----
     almacen._mem = { version: 2, pruebas: {} };
-    almacenF3._mem = { version: 1, tolerancias: {}, verSegunTolerancia: false };
-    assert(resumenFase2PorGrupo("Miel") === null, "resumenFase2PorGrupo sin diario devuelve null");
-    iniciarPrueba("Miel", "2026-06-01", "seguida");
-    guardarDosis("Miel", 0, { dolor: 1, hinchazon: 2, gases: 0, notas: "" });
-    guardarDosis("Miel", 1, { dolor: 6, hinchazon: 3, gases: 1, notas: "" });
-    var rs = resumenFase2PorGrupo("Miel");
-    assert(rs && rs.alimento === "Miel", "resumenFase2PorGrupo devuelve el alimento probado");
-    assert(rs.dias[0].pico === 2, "pico de la dosis 1 = máximo de los 3 síntomas");
-    assert(rs.dias[1].pico === 6, "pico de la dosis 2 = máximo (6)");
-    assert(sugerirLimiteDosis("Miel") === 1, "sugiere la última dosis sin síntomas altos (dosis 1)");
-    reiniciarPrueba("Miel");
-    assert(sugerirLimiteDosis("Miel") === 1, "sin diario, la sugerencia por defecto es 1");
+    iniciarPrueba("Cebolla", "2026-06-01", "alterna");
+    guardarDosis("Cebolla", 0, { dolor: 1, hinchazon: 2, gases: 0, notas: "" });
+    guardarDosis("Cebolla", 1, { dolor: 6, hinchazon: 3, gases: 1, notas: "" });
+    setConclusion("Cebolla", "limite", 0);
+    var rg = resumenPorGrupo(DATOS);
+    assert(rg["Fructanos"] && rg["Fructanos"].length >= 1, "Cebolla aparece bajo Fructanos");
+    var fila = rg["Fructanos"].filter(function (x) { return x.alimento === "Cebolla"; })[0];
+    assert(fila && fila.dias[0].pico === 2, "pico dosis 1 = max(1,2,0) = 2");
+    assert(fila.dias[1].pico === 6, "pico dosis 2 = 6");
+    assert(fila.conclusion.estado === "limite", "el resumen incluye la conclusión");
+    almacen._mem = { version: 2, pruebas: {} };
 
     // ---- FASE 3: copia de seguridad unificada ----
     almacen._mem = { version: 2, pruebas: {} };
