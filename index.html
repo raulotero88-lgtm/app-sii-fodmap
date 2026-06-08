@@ -934,6 +934,18 @@
      ============================================================ */
   var vistaActual = "buscador"; // "buscador" | "fase2"
 
+  function rutaInicial() { return { tab: "buscador", sub: null, alim: null }; }
+  function aplicarRuta(actual, cambio) {
+    var r = { tab: cambio.tab || actual.tab, sub: (cambio.sub !== undefined ? cambio.sub : null),
+              alim: (cambio.alim !== undefined ? cambio.alim : null) };
+    return r;
+  }
+  // armado: si ya estaba armado el aviso de salida. ahora/ultimo: timestamps ms. Ventana 2s.
+  function decidirSalida(armado, ahora, ultimo) {
+    if (armado && (ahora - ultimo) <= 2000) return { armar: false, salir: true };
+    return { armar: true, salir: false };
+  }
+
   function renderApp() {
     var app = document.getElementById("app");
     if (!app) return;
@@ -1847,6 +1859,17 @@
     assert(importarTodo("{ no es json") === false, "JSON inválido -> false");
     assert(importarTodo('{"foo":1}') === false, "sin secciones -> false");
     almacen._mem = { version: 2, pruebas: {} }; almacenF3._mem = { version: 2, manuales: {}, verSegunTolerancia: false };
+
+    // ---- NAVEGACIÓN: lógica pura ----
+    assert(rutaInicial().tab === "buscador", "ruta inicial = buscador");
+    var r1 = aplicarRuta(rutaInicial(), { tab: "fase2" });
+    assert(r1.tab === "fase2" && r1.sub === null, "navegar a fase2 limpia subvista");
+    var r2 = aplicarRuta(r1, { tab: "fase2", sub: "alimento", alim: "Cebolla" });
+    assert(r2.sub === "alimento" && r2.alim === "Cebolla", "abrir alimento guarda parámetro");
+    // pulsa otra vez para salir
+    assert(decidirSalida(false, 1000, 0).armar === true, "primer back en la raíz: arma el aviso, no sale");
+    assert(decidirSalida(true, 1500, 1000).salir === true, "segundo back dentro de 2s: sale");
+    assert(decidirSalida(true, 4000, 1000).salir === false, "segundo back pasados >2s: no sale, re-arma");
 
     almacenF3._mem = null;                      // dejar limpio
     almacen._mem = { version: 2, pruebas: {} }; // dejar limpio
