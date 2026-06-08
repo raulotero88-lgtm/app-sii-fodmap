@@ -149,6 +149,7 @@
     .resumen-grupo th{background:var(--sup-2);font-weight:600}
     .conclusion{border:1px solid var(--linea);border-radius:12px;padding:12px;margin:12px 0;background:var(--sup)}
     .autosave{display:inline-block;color:var(--verde,#2F8F6B);font-size:.85rem;margin:4px 0}
+    .toast{position:fixed;bottom:72px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:10px 16px;border-radius:20px;z-index:9998;font-size:.9rem}
     /* ---- Fase 3 (personalización) ---- */
     .tol-card{border:1px solid var(--linea);border-radius:var(--radio);padding:14px;margin-bottom:12px;background:var(--sup);box-shadow:var(--sombra)}
     .tol-card h3{margin:0 0 4px;font-size:1.05rem}
@@ -883,10 +884,7 @@
     if (!cont) return;
     cont.innerHTML = fichaHTML(a);
     var v = document.querySelector("[data-volver]");
-    if (v) v.addEventListener("click", function () {
-      render();
-      window.scrollTo(0, 0);
-    });
+    if (v) v.addEventListener("click", function () { history.back(); });
     window.scrollTo(0, 0);
   }
 
@@ -915,7 +913,7 @@
     });
     Array.prototype.forEach.call(document.querySelectorAll("[data-nombre]"), function (b) {
       b.addEventListener("click", function () {
-        mostrarFicha(b.getAttribute("data-nombre"));
+        irA({ tab: "buscador", sub: "ficha", alim: b.getAttribute("data-nombre") });
       });
     });
   }
@@ -960,14 +958,30 @@
     });
     if (vistaActual === "fase2") renderFase2();
     else if (vistaActual === "fase3") renderFase3();
-    else render();
+    else { render(); if (estadoBuscador.fichaAbierta) mostrarFicha(estadoBuscador.fichaAbierta); }
   }
 
-  function navegar(tab) {
-    vistaActual = tab;
+  /* ---- Capa de historial (botón atrás del dispositivo) ---- */
+  var rutaActual = rutaInicial();
+  var salirArmado = false, salirUltimo = 0, salirTimer = null;
+  var estadoBuscador = { fichaAbierta: null };
+
+  function pintarRuta(r) {
+    rutaActual = r;
+    vistaActual = r.tab;
+    if (r.tab === "fase2") { estadoFase2.resumen = (r.sub === "resumen"); estadoFase2.alimentoAbierto = (r.sub === "alimento" ? r.alim : null); }
+    if (r.tab === "buscador") { estadoBuscador.fichaAbierta = (r.sub === "ficha" ? r.alim : null); }
     renderApp();
     window.scrollTo(0, 0);
   }
+
+  function irA(cambio) {
+    var r = aplicarRuta(rutaActual, cambio);
+    history.pushState(r, "");
+    pintarRuta(r);
+  }
+
+  function navegar(tab) { irA({ tab: tab, sub: null, alim: null }); }
 
   /* ============================================================
      FASE 2 · GRUPOS FODMAP (metadatos) + derivación desde el alimento
@@ -1280,14 +1294,11 @@
         var a = b.getAttribute("data-accion");
         if (a === "exportar") descargar("diario-fodmap.json", exportarTodo());
         else if (a === "importar") pedirImportar();
-        else if (a === "resumen") { estadoFase2.resumen = true; renderFase2(); window.scrollTo(0, 0); }
+        else if (a === "resumen") { irA({ tab: "fase2", sub: "resumen", alim: null }); }
       });
     });
     Array.prototype.forEach.call(v.querySelectorAll("[data-volver-f2]"), function (b) {
-      b.addEventListener("click", function () {
-        estadoFase2.resumen = false; estadoFase2.alimentoAbierto = null;
-        renderFase2(); window.scrollTo(0, 0);
-      });
+      b.addEventListener("click", function () { history.back(); });
     });
   }
 
@@ -1364,7 +1375,7 @@
     wireAcciones(v);
   }
 
-  function irAlimentoReto(nombre) { estadoFase2.alimentoAbierto = nombre; renderFase2(); window.scrollTo(0, 0); }
+  function irAlimentoReto(nombre) { irA({ tab: "fase2", sub: "alimento", alim: nombre }); }
 
   function bloqueDosisHTML(nombre, i, d) {
     function slider(clave, label, val) {
@@ -1455,7 +1466,7 @@
       var fch = document.getElementById("fechaSel");
       var fecha = (fch && fch.value) ? fch.value : aISO(new Date());
       iniciarPrueba(nombre, fecha, agenda, 3);
-      renderFase2(); window.scrollTo(0, 0);
+      pintarRuta(rutaActual);
     });
 
     Array.prototype.forEach.call(v.querySelectorAll("input[data-slider]"), function (s) {
@@ -1486,7 +1497,7 @@
     });
 
     var anad = v.querySelector("[data-anadir]");
-    if (anad) anad.addEventListener("click", function () { anadirDosis(nombre); renderFase2(); });
+    if (anad) anad.addEventListener("click", function () { anadirDosis(nombre); pintarRuta(rutaActual); });
 
     var ce = document.getElementById("conclEstado");
     if (ce) ce.addEventListener("change", function () {
@@ -1502,11 +1513,11 @@
 
     var rei = v.querySelector("[data-reiniciar]");
     if (rei) rei.addEventListener("click", function () {
-      if (window.confirm("¿Borrar los datos de este alimento y empezar de nuevo?")) { reiniciarPrueba(nombre); renderFase2(); window.scrollTo(0, 0); }
+      if (window.confirm("¿Borrar los datos de este alimento y empezar de nuevo?")) { reiniciarPrueba(nombre); pintarRuta(rutaActual); }
     });
 
     Array.prototype.forEach.call(v.querySelectorAll("[data-volver-f2]"), function (b) {
-      b.addEventListener("click", function () { estadoFase2.alimentoAbierto = null; renderFase2(); window.scrollTo(0, 0); });
+      b.addEventListener("click", function () { history.back(); });
     });
   }
 
@@ -1529,7 +1540,7 @@
       (bloques || '<p class="vacio">Aún no has registrado ningún alimento.</p>') +
       '<footer>Picos 0-10 (máximo de dolor/hinchazón/gases por dosis).</footer>';
     Array.prototype.forEach.call(v.querySelectorAll("[data-volver-f2]"), function (b) {
-      b.addEventListener("click", function () { estadoFase2.resumen = false; renderFase2(); window.scrollTo(0, 0); });
+      b.addEventListener("click", function () { history.back(); });
     });
   }
 
@@ -1878,12 +1889,37 @@
   /* ============================================================
      ARRANQUE
      ============================================================ */
+  function mostrarToast(msg) {
+    var t = document.getElementById("toast");
+    if (!t) { t = document.createElement("div"); t.id = "toast"; t.className = "toast"; document.body.appendChild(t); }
+    t.textContent = msg; t.style.display = "block";
+    setTimeout(function () { t.style.display = "none"; }, 1900);
+  }
+
   function init() {
     if (location.search.indexOf("test") !== -1) {
       runTests();
       return;
     }
-    renderApp();
+    history.replaceState(rutaInicial(), "");
+    pintarRuta(rutaInicial());
+
+    window.addEventListener("popstate", function (e) {
+      if (e.state && e.state.tab) {
+        salirArmado = false;
+        pintarRuta(e.state);
+        return;
+      }
+      // estado sin ruta = intento de salir desde la raíz
+      var ahora = Date.now();
+      var d = decidirSalida(salirArmado, ahora, salirUltimo);
+      if (d.salir) { history.back(); return; }   // deja salir de verdad
+      salirArmado = true; salirUltimo = ahora;
+      history.pushState(rutaInicial(), "");        // re-arma el buffer
+      mostrarToast("Pulsa atrás otra vez para salir");
+      if (salirTimer) clearTimeout(salirTimer);
+      salirTimer = setTimeout(function () { salirArmado = false; }, 2000);
+    });
   }
 
   document.addEventListener("DOMContentLoaded", init);
