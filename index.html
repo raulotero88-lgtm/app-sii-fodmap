@@ -150,6 +150,11 @@
     .conclusion{border:1px solid var(--linea);border-radius:12px;padding:12px;margin:12px 0;background:var(--sup)}
     .autosave{display:inline-block;color:var(--verde,#2F8F6B);font-size:.85rem;margin:4px 0}
     .toast{position:fixed;bottom:72px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:10px 16px;border-radius:20px;z-index:9998;font-size:.9rem}
+    .card.bloqueada{opacity:.55;cursor:default}
+    .card-flag{display:block;font-size:.68rem;margin-top:4px;font-weight:600;line-height:1.2}
+    .card-flag.reintro{color:var(--verde,#2F8F6B)}
+    .card-flag.mano{color:#777}
+    .card.nivel-libre{border:2px dashed var(--linea)}
     /* ---- Fase 3 (personalización) ---- */
     .tol-card{border:1px solid var(--linea);border-radius:var(--radio);padding:14px;margin-bottom:12px;background:var(--sup);box-shadow:var(--sombra)}
     .tol-card h3{margin:0 0 4px;font-size:1.05rem}
@@ -965,12 +970,14 @@
   var rutaActual = rutaInicial();
   var salirArmado = false, salirUltimo = 0, salirTimer = null;
   var estadoBuscador = { fichaAbierta: null };
+  var estadoFase3 = { sub: null, alim: null, texto: "", categoria: null };
 
   function pintarRuta(r) {
     rutaActual = r;
     vistaActual = r.tab;
     if (r.tab === "fase2") { estadoFase2.resumen = (r.sub === "resumen"); estadoFase2.alimentoAbierto = (r.sub === "alimento" ? r.alim : null); }
     if (r.tab === "buscador") { estadoBuscador.fichaAbierta = (r.sub === "ficha" ? r.alim : null); }
+    if (r.tab === "fase3") { estadoFase3.sub = r.sub || null; estadoFase3.alim = r.alim || null; }
     renderApp();
     window.scrollTo(0, 0);
   }
@@ -1196,6 +1203,9 @@
   }
   function borrarManual(nombre) { var d = almacenF3.cargar(); if (d.manuales[nombre]) { delete d.manuales[nombre]; almacenF3.guardar(d); } }
   function setVerSegunTolerancia(on) { var d = almacenF3.cargar(); d.verSegunTolerancia = !!on; almacenF3.guardar(d); }
+
+  // No se puede añadir a mano un alimento ya reintroducido (con conclusión): manda la reintroducción.
+  function bloqueadoParaManual(nombre) { return estadoPrueba(nombre) === "hecho"; }
 
   // Une conclusiones de la reintroducción (mandan) + manuales. nombre -> "tolera"|"limite"|"no".
   function mapaToleranciaPorAlimento() {
@@ -1560,6 +1570,8 @@
      ============================================================ */
 
   function renderFase3() {
+    if (estadoFase3.sub === "picker") { renderFase3Picker(); return; }
+    if (estadoFase3.sub === "set") { renderFase3Set(estadoFase3.alim); return; }
     var v = document.getElementById("vista");
     if (!v) return;
     var pr = almacen.cargar().pruebas || {};
@@ -1602,15 +1614,132 @@
     });
     var add = v.querySelector("[data-add-manual]");
     if (add) add.addEventListener("click", function () {
-      var nombre = window.prompt("¿Qué alimento? (puedes escribir uno que no esté en el buscador)");
-      if (!nombre) return;
-      var estado = window.prompt("¿Lo toleras? escribe: tolera / limite / no", "tolera");
-      if (["tolera","limite","no"].indexOf(estado) === -1) { window.alert("Escribe tolera, limite o no."); return; }
-      var cantidad = (estado === "limite") ? (window.prompt("¿Hasta qué cantidad?", "") || "") : "";
-      setManual(nombre, estado, cantidad, "");
-      renderFase3();
+      estadoFase3.texto = ""; estadoFase3.categoria = null;
+      irA({ tab: "fase3", sub: "picker", alim: null });
     });
     wireAcciones(v);
+  }
+
+  /* Selector de alimento (estilo Buscador) para añadir a mano. */
+  function renderFase3Picker() {
+    var v = document.getElementById("vista");
+    if (!v) return;
+    var texto = estadoFase3.texto, categoria = estadoFase3.categoria;
+    var resultados = buscar(texto, DATOS, categoria, false);
+
+    var chips = CATEGORIAS.map(function (c) {
+      return '<button class="chip' + (categoria === c ? " activo" : "") +
+        '" data-f3cat="' + escapeHTML(c) + '">' + escapeHTML(c) + "</button>";
+    }).join("");
+
+    function marcas(nombre) {
+      var bloq = bloqueadoParaManual(nombre);
+      var man = manualDe(nombre);
+      return (bloq ? '<span class="card-flag reintro">✓ ya reintroducido</span>' : '') +
+             (man ? '<span class="card-flag mano">a mano: ' + escapeHTML(CONCL_ETIQUETAS[man.estado] || man.estado) + '</span>' : '');
+    }
+    var cards = resultados.map(function (a) {
+      var interior =
+        '<span class="emoji">' + emojiNivel(a.nivel) + '</span>' +
+        '<span class="card-nombre">' + escapeHTML(a.nombre) + '</span>' +
+        '<span class="card-cat">' + escapeHTML(a.categoria) + '</span>' + marcas(a.nombre);
+      if (bloqueadoParaManual(a.nombre)) {
+        return '<div class="card nivel-' + a.nivel + ' bloqueada" aria-disabled="true">' + interior + '</div>';
+      }
+      return '<button class="card nivel-' + a.nivel + '" data-f3pick="' + escapeHTML(a.nombre) + '">' + interior + '</button>';
+    }).join("");
+
+    var existeExacto = DATOS.some(function (a) { return normalizar(a.nombre) === normalizar(texto); });
+    var libre = (texto && !existeExacto)
+      ? '<button class="card nivel-libre" data-f3pick-libre="' + escapeHTML(texto) + '">' +
+        '<span class="emoji">➕</span><span class="card-nombre">Añadir «' + escapeHTML(texto) + '»</span>' +
+        '<span class="card-cat">no está en el buscador</span></button>'
+      : '';
+
+    v.innerHTML =
+      '<button class="volver" data-volver-f3="1">‹ Volver</button>' +
+      '<header><h1>➕ Añadir a mano</h1>' +
+      '<p class="aviso">Elige un alimento de la lista (o escribe uno que no esté). ' +
+      'Los que ya pasaron por <strong>Reintroducción</strong> salen marcados y no se pueden añadir aquí: su tolerancia manda.</p></header>' +
+      '<input id="qf3" type="search" inputmode="search" placeholder="Busca un alimento… (ej. pasta)" ' +
+      'value="' + escapeHTML(texto) + '" autocomplete="off" autocapitalize="off">' +
+      '<div class="chips"><button class="chip' + (categoria === null ? " activo" : "") +
+      '" data-f3cat="">Todas</button>' + chips + "</div>" +
+      '<p class="conteo">' + resultados.length + ' alimento' + (resultados.length === 1 ? "" : "s") + '</p>' +
+      libre +
+      (cards ? '<div class="grid">' + cards + '</div>' : (libre ? '' : '<p class="vacio">No se ha encontrado nada.</p>')) +
+      '<footer>La app registra, no diagnostica.</footer>';
+
+    var q = document.getElementById("qf3");
+    if (q) q.addEventListener("input", function (e) {
+      estadoFase3.texto = e.target.value; renderFase3Picker();
+      var n = document.getElementById("qf3"); if (n) { n.focus(); try { n.setSelectionRange(n.value.length, n.value.length); } catch (x) {} }
+    });
+    Array.prototype.forEach.call(v.querySelectorAll("[data-f3cat]"), function (b) {
+      b.addEventListener("click", function () { estadoFase3.categoria = b.getAttribute("data-f3cat") || null; renderFase3Picker(); });
+    });
+    Array.prototype.forEach.call(v.querySelectorAll("[data-f3pick]"), function (b) {
+      b.addEventListener("click", function () { irA({ tab: "fase3", sub: "set", alim: b.getAttribute("data-f3pick") }); });
+    });
+    Array.prototype.forEach.call(v.querySelectorAll("[data-f3pick-libre]"), function (b) {
+      b.addEventListener("click", function () { irA({ tab: "fase3", sub: "set", alim: b.getAttribute("data-f3pick-libre") }); });
+    });
+    Array.prototype.forEach.call(v.querySelectorAll("[data-volver-f3]"), function (b) {
+      b.addEventListener("click", function () { history.back(); });
+    });
+  }
+
+  /* Fija la tolerancia (Tolero / con límite / No tolero) del alimento elegido. */
+  function renderFase3Set(nombre) {
+    var v = document.getElementById("vista");
+    if (!v) return;
+    if (!nombre) { history.back(); return; }
+    function volver(v2) {
+      Array.prototype.forEach.call(v2.querySelectorAll("[data-volver-f3]"), function (b) {
+        b.addEventListener("click", function () { history.back(); });
+      });
+    }
+    if (bloqueadoParaManual(nombre)) {
+      v.innerHTML =
+        '<button class="volver" data-volver-f3="1">‹ Volver</button>' +
+        '<header><h1>' + escapeHTML(nombre) + '</h1></header>' +
+        '<div class="lavado">Este alimento ya pasó por Reintroducción; su tolerancia manda y no se edita a mano.</div>';
+      volver(v); return;
+    }
+    var al = DATOS.filter(function (x) { return x.nombre === nombre; })[0];
+    var grupos = al ? gruposDeAlimento(al) : [];
+    var prev = manualDe(nombre) || { estado: "tolera", cantidad: "", nota: "" };
+
+    var opcsEstado = ["tolera","limite","no"].map(function (e) {
+      return '<option value="' + e + '"' + (prev.estado === e ? " selected" : "") + '>' + CONCL_ETIQUETAS[e] + '</option>';
+    }).join("");
+
+    v.innerHTML =
+      '<button class="volver" data-volver-f3="1">‹ Volver</button>' +
+      '<header><h1>' + escapeHTML(nombre) + '</h1>' +
+      '<p class="ficha-cat">' + (al ? 'Grupo: ' + escapeHTML(grupos.length ? grupos.join(" · ") : "ninguno (ya seguro)") : 'No está en el buscador') + '</p></header>' +
+      '<div class="conclusion"><h4>Tu tolerancia</h4>' +
+      '<label>¿Lo toleras?<select class="alim" id="f3estado">' + opcsEstado + '</select></label>' +
+      '<label id="f3cantWrap"' + (prev.estado === "limite" ? "" : " hidden") + '>¿Hasta qué cantidad?' +
+      '<input type="text" class="alim" id="f3cant" value="' + escapeHTML(prev.cantidad || "") + '" placeholder="ej. 1/2 plato" autocomplete="off"></label>' +
+      '<label>Nota (opcional)<input type="text" class="alim" id="f3nota" value="' + escapeHTML(prev.nota || "") + '" autocomplete="off"></label>' +
+      '</div>' +
+      '<div class="btn-row"><button class="btn" data-f3guardar="1">Guardar</button>' +
+      '<button class="btn sec" data-volver-f3="1">Cancelar</button></div>';
+
+    var est = document.getElementById("f3estado");
+    if (est) est.addEventListener("change", function () {
+      var w = document.getElementById("f3cantWrap"); if (w) w.hidden = (est.value !== "limite");
+    });
+    var g = v.querySelector("[data-f3guardar]");
+    if (g) g.addEventListener("click", function () {
+      var estado = document.getElementById("f3estado").value;
+      var cantidad = (estado === "limite") ? (document.getElementById("f3cant").value || "") : "";
+      var nota = document.getElementById("f3nota").value || "";
+      setManual(nombre, estado, cantidad, nota);
+      history.go(-2); // vuelve a la pantalla principal de Personalización (saltando el selector)
+    });
+    volver(v);
   }
 
   /* ============================================================
@@ -1830,6 +1959,15 @@
     assert(mg.verSegunTolerancia === true, "migración F3 conserva el interruptor");
     assert(mg.tolerancias_legacy && mg.tolerancias_legacy.fructosa, "migración F3 conserva lo viejo en tolerancias_legacy");
     almacenF3._mem = { version:2, manuales:{}, verSegunTolerancia:false };
+
+    // ---- FASE 3 v2: bloqueo de 'añadir a mano' para los ya reintroducidos ----
+    almacen._mem = { version: 2, pruebas: {} }; almacenF3._mem = { version: 2, manuales: {}, verSegunTolerancia: false };
+    assert(bloqueadoParaManual("Cebolla") === false, "sin reintroducir -> se puede añadir a mano");
+    iniciarPrueba("Cebolla", "2026-06-01", "alterna");
+    assert(bloqueadoParaManual("Cebolla") === false, "iniciada pero sin conclusión -> aún se puede añadir a mano");
+    setConclusion("Cebolla", "tolera", null);
+    assert(bloqueadoParaManual("Cebolla") === true, "con conclusión -> bloqueado para añadir a mano");
+    almacen._mem = { version: 2, pruebas: {} }; almacenF3._mem = { version: 2, manuales: {}, verSegunTolerancia: false };
 
     // ---- FASE 3 v2: tolerancia por alimento + recolor ----
     almacen._mem = { version: 2, pruebas: {} }; almacenF3._mem = { version: 2, manuales: {}, verSegunTolerancia: false };
