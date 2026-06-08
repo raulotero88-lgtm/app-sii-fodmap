@@ -2268,7 +2268,7 @@
   function pintarRuta(r) {
     rutaActual = r;
     vistaActual = r.tab;
-    if (r.tab === "fase2") { estadoFase2.resumen = (r.sub === "resumen"); estadoFase2.alimentoAbierto = (r.sub === "alimento" ? r.alim : null); }
+    if (r.tab === "fase2") { estadoFase2.resumen = (r.sub === "resumen"); estadoFase2.alimentoAbierto = (r.sub === "alimento" ? r.alim : null); estadoFase2.nuevo = (r.sub === "nuevo"); }
     if (r.tab === "buscador") { estadoBuscador.fichaAbierta = (r.sub === "ficha" ? r.alim : null); }
     if (r.tab === "fase3") { estadoFase3.sub = r.sub || null; estadoFase3.alim = r.alim || null; }
     renderApp();
@@ -2489,6 +2489,17 @@
   }
   function listaReintro() { return DATOS.concat(manualReintroComoAlimentos()); }
 
+  function validarNuevoReintro(nombre, datos) {
+    var n = (nombre || "").trim();
+    if (!n) return { ok: false, motivo: "Escribe un nombre." };
+    var norm = normalizar(n);
+    if (datos.some(function (a) { return normalizar(a.nombre) === norm; }))
+      return { ok: false, motivo: "Ese alimento ya está en la lista; búscalo arriba." };
+    if (manualReintroLista().some(function (m) { return normalizar(m.nombre) === norm; }))
+      return { ok: false, motivo: "Ya lo has añadido a mano." };
+    return { ok: true, motivo: "" };
+  }
+
   /* ============================================================
      FASE 3 · DATOS Y LÓGICA (personalización / tolerancias)
      estado ∈ "sin_probar" | "tolera" | "limite" | "no"
@@ -2592,7 +2603,7 @@
   /* ============================================================
      FASE 2 · RENDER / UI
      ============================================================ */
-  var estadoFase2 = { texto: "", grupo: null, alimentoAbierto: null, resumen: false };
+  var estadoFase2 = { texto: "", grupo: null, alimentoAbierto: null, resumen: false, nuevo: false };
 
   function descargar(nombre, contenido) {
     try {
@@ -2629,6 +2640,7 @@
         if (a === "exportar") descargar("diario-fodmap.json", exportarTodo());
         else if (a === "importar") pedirImportar();
         else if (a === "resumen") { irA({ tab: "fase2", sub: "resumen", alim: null }); }
+        else if (a === "nuevo-reintro") { irA({ tab: "fase2", sub: "nuevo", alim: null }); }
       });
     });
     Array.prototype.forEach.call(v.querySelectorAll("[data-volver-f2]"), function (b) {
@@ -2651,6 +2663,7 @@
     if (!v) return;
     if (estadoFase2.resumen) { renderResumen(); return; }
     if (estadoFase2.alimentoAbierto) { renderAlimentoReto(estadoFase2.alimentoAbierto); return; }
+    if (estadoFase2.nuevo) { renderReintroNuevo(); return; }
 
     var base = ordenarParaReintro(listaReintro());
     var resultados = base.filter(function (a) {
@@ -2689,6 +2702,7 @@
       '<p class="conteo">' + resultados.length + ' alimento' + (resultados.length === 1 ? "" : "s") + '</p>' +
       (cards || '<p class="vacio">No se ha encontrado nada.</p>') +
       '<div class="btn-row">' +
+        '<button class="btn sec" data-accion="nuevo-reintro">➕ Reintroducir un alimento no listado</button>' +
         '<button class="btn sec" data-accion="resumen">📋 Ver resumen</button>' +
         '<button class="btn sec" data-accion="exportar">⬇️ Exportar copia</button>' +
         '<button class="btn sec" data-accion="importar">⬆️ Importar copia</button>' +
@@ -2736,6 +2750,39 @@
   }
 
   var CONCL_ETIQUETAS = { sin:"Sin concluir", tolera:"Tolero", limite:"Tolero con límite", no:"No tolero" };
+
+  function renderReintroNuevo() {
+    var v = document.getElementById("vista");
+    if (!v) return;
+    var grupos = ["Fructosa","Lactosa","Sorbitol","Manitol","Fructanos","GOS"];
+    var opcs = '<option value="">No lo sé</option>' + grupos.map(function (g) {
+      return '<option value="' + g + '">' + g + '</option>';
+    }).join("");
+    v.innerHTML =
+      '<button class="volver" data-volver-f2="1">‹ Volver</button>' +
+      '<header><h1>➕ Alimento no listado</h1>' +
+      '<p class="aviso">Para un alimento que no está en la lista. Indica su grupo FODMAP si lo conoces ' +
+      '(define la agenda y el resumen para tu dietista). Luego se reintroduce igual que cualquier otro.</p></header>' +
+      '<label>Nombre del alimento<input type="text" class="alim" id="nrNombre" placeholder="ej. Durián" autocomplete="off"></label>' +
+      '<label>Grupo FODMAP<select class="alim" id="nrGrupo">' + opcs + '</select></label>' +
+      '<label>Nota (opcional)<input type="text" class="alim" id="nrNota" autocomplete="off"></label>' +
+      '<p class="err" id="nrErr" hidden></p>' +
+      '<div class="btn-row"><button class="btn" data-nr-guardar="1">Empezar reintroducción</button>' +
+      '<button class="btn sec" data-volver-f2="1">Cancelar</button></div>';
+    var g = v.querySelector("[data-nr-guardar]");
+    if (g) g.addEventListener("click", function () {
+      var nombre = document.getElementById("nrNombre").value.trim();
+      var val = validarNuevoReintro(nombre, DATOS);
+      if (!val.ok) { var e = document.getElementById("nrErr"); e.textContent = val.motivo; e.hidden = false; return; }
+      var grupo = document.getElementById("nrGrupo").value;
+      var nota = document.getElementById("nrNota").value || "";
+      setManualReintro(nombre, grupo ? [grupo] : [], nota);
+      irA({ tab: "fase2", sub: "alimento", alim: nombre });
+    });
+    Array.prototype.forEach.call(v.querySelectorAll("[data-volver-f2]"), function (b) {
+      b.addEventListener("click", function () { history.back(); });
+    });
+  }
 
   function renderAlimentoReto(nombre) {
     var v = document.getElementById("vista");
@@ -3270,6 +3317,18 @@
     try { renderAlimentoReto("Cebolla"); } catch (e) { okRenderListado = false; }
     assert(okRenderListado, "renderAlimentoReto sigue OK con un listado");
     estadoFase2.alimentoAbierto = null;
+    almacen._mem = null; store_clear_helper();
+
+    // ---- FASE 2: validación del alta de no-listado + render del formulario ----
+    almacen._mem = null; store_clear_helper();
+    assert(validarNuevoReintro("", DATOS).ok === false, "nombre vacío no es válido");
+    assert(validarNuevoReintro("Cebolla", DATOS).ok === false, "nombre ya en DATOS no es válido");
+    setManualReintro("Yaca", ["Fructanos"], "");
+    assert(validarNuevoReintro("Yaca", DATOS).ok === false, "nombre ya añadido no es válido");
+    assert(validarNuevoReintro("Durián", DATOS).ok === true, "nombre nuevo es válido");
+    var okFormRender = true;
+    try { renderReintroNuevo(); } catch (e) { okFormRender = false; }
+    assert(okFormRender, "renderReintroNuevo no rompe");
     almacen._mem = null; store_clear_helper();
 
     // ---- FASE 2: el resumen agrupa los no-listados por su grupo / Otros ----
