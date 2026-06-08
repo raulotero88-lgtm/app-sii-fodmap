@@ -205,11 +205,41 @@
       fodmap:["Fructanos"], alternativas:["Parte verde del puerro","Cebollino","Parte verde de cebolleta"],
       consejo:"Aprovecha solo la parte verde de las hojas para dar sabor.",
       fuente:"Monash FODMAP" },
-    { nombre:"Champiñón", sinonimos:["seta","setas","champiñones"], categoria:"Verduras",
+    { nombre:"Champiñón", sinonimos:["seta","setas","champiñones","champiñón blanco","champiñon"], categoria:"Verduras",
       nivel:"rojo", racion_segura:"Fresco: evitar en fase 1. Excepciones: setas ostra y champiñón en conserva (ración pequeña).",
-      fodmap:["Manitol"], alternativas:["Setas ostra (toleradas en ración pequeña)","Champiñón en conserva","Calabacín"],
+      fodmap:["Manitol"], alternativas:["Setas ostra","Seta de cardo","Seta enoki","Champiñón en conserva","Calabacín"],
       consejo:"Las setas ostra y el champiñón en conserva (el enlatado reduce el manitol) son las excepciones bajas en FODMAP.",
       fuente:"AEG/SEEN · Monash FODMAP" },
+    { nombre:"Champiñón portobello", sinonimos:["portobello","portobella","seta portobello","champiñón crimini","crimini","cremini"], categoria:"Verduras",
+      nivel:"rojo", racion_segura:"Evitar en fase 1. Es la versión madura del champiñón blanco; mantiene la misma carga de manitol.",
+      fodmap:["Manitol"], alternativas:["Setas ostra","Seta de cardo","Seta enoki","Champiñón en conserva"],
+      consejo:"El portobello es Agaricus bisporus en estado maduro; su contenido en manitol es equivalente al champiñón fresco. El crimini/cremini es la misma variedad en estadio intermedio.",
+      fuente:"Monash FODMAP" },
+    { nombre:"Setas ostra", sinonimos:["seta ostra","orejón","pleurotus ostreatus","seta de ostra","setas ostras"], categoria:"Verduras",
+      nivel:"verde", racion_segura:"Hasta 2 setas medianas (~65 g) por comida.",
+      fodmap:[], alternativas:[],
+      consejo:"Una de las pocas setas testadas como baja en FODMAP. El salteado no aumenta su carga.",
+      fuente:"Monash FODMAP" },
+    { nombre:"Seta de cardo", sinonimos:["king oyster","seta ostra gigante","pleurotus eryngii","seta de chopo","seta rey"], categoria:"Verduras",
+      nivel:"verde", racion_segura:"Hasta ~100 g por comida.",
+      fodmap:[],  alternativas:[],
+      consejo:"Seta baja en FODMAP con textura carnosa; buena sustituta del champiñón en guisos y salteados.",
+      fuente:"Monash FODMAP" },
+    { nombre:"Seta enoki", sinonimos:["enoki","enokitake","seta aguja","seta de invierno","flammulina"], categoria:"Verduras",
+      nivel:"verde", racion_segura:"Hasta ~85 g por comida.",
+      fodmap:[],  alternativas:[],
+      consejo:"Seta baja en FODMAP, ideal como alternativa al champiñón en sopas y salteados.",
+      fuente:"Monash FODMAP" },
+    { nombre:"Seta shiitake", sinonimos:["shiitake","shitake","seta japonesa","lentinula edodes","seta negra"], categoria:"Verduras",
+      nivel:"amarillo", racion_segura:"Fresca: hasta 2 piezas medianas (~65 g). Seca rehidratada: hasta 2 piezas (~25 g seco). No superar la ración.",
+      fodmap:["Manitol"], alternativas:["Setas ostra","Seta de cardo","Seta enoki"],
+      consejo:"Moderada en FODMAP en ración controlada; superar ~65 g frescos puede elevar la carga de manitol de forma significativa.",
+      fuente:"Monash FODMAP" },
+    { nombre:"Champiñón en conserva", sinonimos:["champiñon en lata","setas en lata","setas en conserva","champiñones en conserva","champiñones lata"], categoria:"Verduras",
+      nivel:"verde", racion_segura:"Hasta ½ lata escurrida (~75 g) por comida.",
+      fodmap:[],  alternativas:[],
+      consejo:"El enlatado (y escurrir el líquido) elimina la mayor parte del manitol, convirtiendo el champiñón en bajo en FODMAP.",
+      fuente:"Monash FODMAP" },
     { nombre:"Coliflor", sinonimos:[], categoria:"Verduras",
       nivel:"rojo", racion_segura:"Evitar en fase 1.",
       fodmap:["Manitol"], alternativas:["Brócoli (cabezas)","Calabacín","Zanahoria"],
@@ -2482,6 +2512,17 @@
     if (d.pruebas && d.pruebas[nombre]) { delete d.pruebas[nombre]; cambiado = true; }
     if (cambiado) almacen.guardar(d);
   }
+  function renombrarManualReintro(viejo, nuevo) {
+    var d = almacen.cargar();
+    if (!d.manualReintro || !d.manualReintro[viejo]) return;
+    d.manualReintro[nuevo] = d.manualReintro[viejo];
+    delete d.manualReintro[viejo];
+    if (d.pruebas && d.pruebas[viejo]) {
+      d.pruebas[nuevo] = d.pruebas[viejo];
+      delete d.pruebas[viejo];
+    }
+    almacen.guardar(d);
+  }
   // Resolvedor: alimento de DATOS, o sintético desde manualReintro.
   // Precedencia intencional: si un día el alimento entra en el catálogo, la ficha curada
   // de DATOS manda sobre el grupo que se eligió a mano (mismo criterio que el resto de la app, por nombre).
@@ -2676,12 +2717,13 @@
 
     var base = ordenarParaReintro(listaReintro());
     var resultados = base.filter(function (a) {
-      if (estadoFase2.grupo && gruposDeAlimento(a).indexOf(estadoFase2.grupo) === -1) return false;
+      if (estadoFase2.grupo === "No listados") { if (!a.manual) return false; }
+      else if (estadoFase2.grupo && gruposDeAlimento(a).indexOf(estadoFase2.grupo) === -1) return false;
       if (!estadoFase2.texto) return true;
       return buscar(estadoFase2.texto, [a], null, false).length === 1;
     });
 
-    var chips = ["Fructosa","Lactosa","Sorbitol","Manitol","Fructanos","GOS"].map(function (g) {
+    var chips = ["Fructosa","Lactosa","Sorbitol","Manitol","Fructanos","GOS","No listados"].map(function (g) {
       return '<button class="chip' + (estadoFase2.grupo === g ? " activo" : "") +
         '" data-fgrupo="' + escapeHTML(g) + '">' + escapeHTML(g) + "</button>";
     }).join("");
@@ -2843,8 +2885,12 @@
 
     var cabecera = a.manual
       ? '<div class="ficha"><div class="ficha-cab"><div class="emoji-grande">➕</div>' +
-        '<h2>' + escapeHTML(a.nombre) + '</h2>' +
-        '<p class="ficha-cat">Añadido a mano (no listado)</p></div></div>'
+        '<h2 id="nombre-manual">' + escapeHTML(a.nombre) + '</h2>' +
+        '<p class="ficha-cat">Añadido a mano (no listado)</p>' +
+        '<div class="btn-row" style="margin-top:8px">' +
+        '<button class="btn sec" data-editar-nombre="1">✏️ Editar nombre</button>' +
+        '<button class="btn peligro" data-borrar-manual="1">🗑️ Eliminar</button>' +
+        '</div></div></div>'
       : fichaHTML(a).replace('<button class="volver" data-volver="1">‹ Volver a la búsqueda</button>', '');
     v.innerHTML =
       '<button class="volver" data-volver-f2="1">‹ Volver a la lista</button>' +
@@ -2923,6 +2969,45 @@
 
     Array.prototype.forEach.call(v.querySelectorAll("[data-volver-f2]"), function (b) {
       b.addEventListener("click", function () { history.back(); });
+    });
+
+    var borrBtn = v.querySelector("[data-borrar-manual]");
+    if (borrBtn) borrBtn.addEventListener("click", function () {
+      if (window.confirm("¿Eliminar «" + nombre + "»? Se borrarán también los datos del reto.")) {
+        borrarManualReintro(nombre);
+        history.back();
+      }
+    });
+
+    var editBtn = v.querySelector("[data-editar-nombre]");
+    if (editBtn) editBtn.addEventListener("click", function () {
+      var h2 = document.getElementById("nombre-manual");
+      if (!h2) return;
+      var actual = nombre;
+      h2.outerHTML =
+        '<div id="editar-nombre-wrap">' +
+        '<input id="input-nuevo-nombre" class="alim" value="' + escapeHTML(actual) + '" style="font-size:1.1em;font-weight:bold;width:100%;box-sizing:border-box" />' +
+        '<div class="btn-row" style="margin-top:8px">' +
+        '<button class="btn" id="guardar-nombre">Guardar</button>' +
+        '<button class="btn sec" id="cancelar-nombre">Cancelar</button>' +
+        '</div>' +
+        '<p id="error-nombre" style="color:var(--rojo,#c0392b);font-size:.85em;margin:4px 0 0"></p>' +
+        '</div>';
+      var inp = document.getElementById("input-nuevo-nombre");
+      if (inp) { inp.focus(); inp.select(); }
+      var guardarBtn = document.getElementById("guardar-nombre");
+      if (guardarBtn) guardarBtn.addEventListener("click", function () {
+        var nuevo = (inp ? inp.value : "").trim();
+        var errEl = document.getElementById("error-nombre");
+        if (!nuevo) { if (errEl) errEl.textContent = "Escribe un nombre."; return; }
+        if (normalizar(nuevo) === normalizar(actual)) { pintarRuta(rutaActual); return; }
+        var val = validarNuevoReintro(nuevo, DATOS);
+        if (!val.ok) { if (errEl) errEl.textContent = val.motivo; return; }
+        renombrarManualReintro(actual, nuevo);
+        irA({ tab: "fase2", sub: "alimento", alim: nuevo });
+      });
+      var cancelarBtn = document.getElementById("cancelar-nombre");
+      if (cancelarBtn) cancelarBtn.addEventListener("click", function () { pintarRuta(rutaActual); });
     });
   }
 
