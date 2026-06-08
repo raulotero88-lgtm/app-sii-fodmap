@@ -12,23 +12,23 @@ navegador y funciona offline; las actualizaciones llegan automáticamente via ba
 
 - **Estado general:** ✅ funcional, en uso y publicada en GitHub Pages.
 - **URL:** [https://raulotero88-lgtm.github.io/app-sii-fodmap/](https://raulotero88-lgtm.github.io/app-sii-fodmap/)
-- **Tests:** 109 ✓ / 0 ✗ (abrir URL + `?test`, o `node tools/run-tests.mjs`).
-- **Alimentos en el buscador:** 131.
-- **Reintroducción:** por alimento (los 131), filtrable por 6 grupos FODMAP.
+- **Tests:** 142 ✓ / 0 ✗ (abrir URL + `?test`, o `node tools/run-tests.mjs`).
+- **Alimentos en el buscador:** 411 (13 categorías: + Aceites y grasas, Edulcorantes y endulzantes, Hierbas y especias).
+- **Reintroducción:** por alimento (los 411), filtrable por 6 grupos FODMAP. Además se puede **reintroducir un alimento no listado** (botón en Reintroducción).
 - **Navegación:** el botón "atrás" del dispositivo navega dentro de la app (no la cierra).
 - **Datos:** revisados y contrastados con la guía clínica del usuario (AEG/SEEN vía NotebookLM) — criterio híbrido prudente. Ver `FUENTES.md`.
 
 ## Módulos
 
 ### 1. Buscador de alimentos (Fase 1) — ✅ Completado
-- 131 alimentos curados con semáforo 🟢🟡🔴.
+- 411 alimentos curados con semáforo 🟢🟡🔴.
 - Por alimento: ración orientativa, FODMAP responsable (o "Motivo del límite"), alternativas, consejo, fuente.
 - Búsqueda tolerante (ignora tildes/mayúsculas, entiende sinónimos).
 - Filtros por categoría y "solo seguros 🟢".
 - Aviso de **acumulación (stacking)** y de porciones de fruta en cabecera.
 
 ### 2. Reintroducción (Fase 2) — ✅ Completado
-- **Organizada por alimentos** (los 131), con buscador y filtros por los 6 grupos FODMAP
+- **Organizada por alimentos** (los 411), con buscador y filtros por los 6 grupos FODMAP
   (Fructosa, Lactosa, Sorbitol, Manitol, Fructanos, GOS). Reintroducibles primero; los "ya seguros 🟢" al final.
 - Cada alimento muestra su **ficha completa** + el/los grupo(s) FODMAP que lleva, **derivados del propio alimento**
   (sin dosis recomendadas: las marca el dietista).
@@ -38,6 +38,10 @@ navegador y funciona offline; las actualizaciones llegan automáticamente via ba
   (localStorage `sii_fodmap_fase2_v1`, modelo v2 `pruebas` por alimento; migración v1→v2 automática).
 - **Conclusión por alimento** que marca la persona: Sin concluir / Tolero / Tolero con límite (con cantidad) / No tolero.
 - **Resumen para la dietista**: por grupo → alimentos → picos por dosis + conclusión.
+- **Reintroducir un alimento no listado**: botón "➕ Reintroducir un alimento no listado" → formulario
+  (nombre + grupo FODMAP, o "no lo sé" → Otros/agenda seguida + nota). El alimento entra en la lista
+  marcado "a mano" y se reintroduce **idéntico** a un listado (registro `manualReintro` + resolvedor
+  `alimentoReintro`); al concluir fluye a Personalización. No aparece en el Buscador (no tiene ficha clínica).
 - Exportar/importar copia. La app registra, **no diagnostica** (aviso visible).
 
 ### 3. Personalización (Fase 3) — ✅ Completado
@@ -64,6 +68,7 @@ navegador y funciona offline; las actualizaciones llegan automáticamente via ba
 | 2026-05-31 | Verificación clínica de los 130 datos vs NotebookLM (AEG/SEEN); correcciones con criterio híbrido prudente, campo "Motivo del límite", +Edamame (131), aviso de stacking. SW v4 |
 | 2026-06-04 | Fase 3: panel de personalización + Buscador personalizado (interruptor de tolerancia). Copia de seguridad unificada. 103 tests. SW v6 |
 | 2026-06-07 | Reestructuración por alimentos: Reintroducción y Fase 3 por alimento (derivada + manual), botón "atrás" del dispositivo (History API) y arnés de tests Node (`tools/run-tests.mjs`). 109 tests. SW v7 |
+| 2026-06-08 | Catálogo ampliado de 131 a **411** alimentos (+3 categorías: Aceites y grasas, Edulcorantes y endulzantes, Hierbas y especias) y **reintroducción de alimentos no listados** (formulario + `manualReintro` + resolvedor). 142 tests. SW v10 |
 
 ## Backlog / ideas futuras (sin empezar)
 
@@ -81,7 +86,7 @@ navegador y funciona offline; las actualizaciones llegan automáticamente via ba
 - **Flujo:** brainstorming → spec (`docs/superpowers/specs/`) → plan (`docs/superpowers/plans/`) → implementar.
 - **Datos:** los alimentos están en `DATOS[]` dentro del `<script>` de `index.html`. Ya **no** hay catálogo `RETOS[]`: el grupo FODMAP y la agenda se **derivan del propio alimento** (`GRUPOS_META` + `gruposDeAlimento`/`agendaDeAlimento`). El diario se guarda **por alimento** (`pruebas`).
 - **Fuentes:** ver `FUENTES.md`. No se copian los gramos exactos propietarios de Monash.
-- **Versión del SW:** al publicar cambios incrementar `VERSION` en `sw.js` (actualmente `v7`) para que el banner aparezca.
+- **Versión del SW:** al publicar cambios incrementar `VERSION` en `sw.js` (actualmente `v10`) para que el banner aparezca.
 
 ## Archivos del proyecto
 

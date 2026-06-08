@@ -56,8 +56,19 @@ sugerido para el sorbitol (recomendado por la guía clínica).
 > La dieta FODMAP estricta es **temporal**. El objetivo final es la mayor variedad
 > posible de alimentos. Conviene hacerla acompañada de un dietista.
 
+## Ampliación 2026-06-08
+
+Catálogo ampliado de **131 a 411 alimentos**. Los alimentos añadidos en esta ampliación se han
+curado con el mismo **criterio híbrido prudente** a partir de **fuentes públicas** (Monash público,
+Cleveland Clinic, Diet vs Disease, IBS Diets, UVA), citando la fuente en cada ficha. Ante datos
+públicos escasos (alimentos exóticos) se ha optado por la clasificación más conservadora (antes 🟡/🔴
+que un 🟢 dudoso). Los 131 originales (cruzados con la guía clínica AEG/SEEN) **no se han modificado**.
+Se añaden las categorías **"Aceites y grasas"**, **"Edulcorantes y endulzantes"** y **"Hierbas y
+especias"**. Estos alimentos nuevos **no se han cruzado** con la guía clínica privada; conviene una
+revisión de la dietista antes de tomarlos como definitivos.
+
 ## Mantenimiento
 
-Última revisión: 2026-05-31. Las clasificaciones FODMAP se actualizan con el tiempo
-(Monash revisa periódicamente sus resultados); conviene revisar esta base de datos
-cada cierto tiempo.
+Última revisión: 2026-06-08 (ampliación del catálogo). Las clasificaciones FODMAP se actualizan con
+el tiempo (Monash revisa periódicamente sus resultados); conviene revisar esta base de datos cada
+cierto tiempo.
