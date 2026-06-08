@@ -2740,18 +2740,22 @@
   function renderAlimentoReto(nombre) {
     var v = document.getElementById("vista");
     if (!v) return;
-    var a = DATOS.filter(function (x) { return x.nombre === nombre; })[0];
+    var a = alimentoReintro(nombre);
     if (!a) { estadoFase2.alimentoAbierto = null; renderFase2(); return; }
     var grupos = gruposDeAlimento(a);
     var agenda = agendaDeAlimento(a);
     var prueba = pruebaDe(nombre);
 
-    var avisoGrupo = grupos.length === 0
-      ? '<div class="lavado">Este alimento ya es seguro 🟢; normalmente no necesita reintroducción, pero puedes registrarlo igualmente.</div>'
-      : (grupos.length > 1
-        ? '<div class="lavado">⚠️ Este alimento tiene varios FODMAP (' + escapeHTML(grupos.join(", ")) +
-          '); una reacción puede deberse a cualquiera de ellos.</div>'
-        : '<div class="lavado">' + escapeHTML((GRUPOS_META[grupos[0]] || {}).nota || "") + '</div>');
+    var avisoGrupo = a.manual
+      ? '<div class="lavado">➕ Alimento <strong>añadido a mano</strong> (no listado). ' +
+        (grupos.length ? 'Grupo FODMAP: <strong>' + escapeHTML(grupos.join(", ")) + '</strong>.'
+                       : 'Sin grupo FODMAP indicado: se prueba en días seguidos.') + '</div>'
+      : (grupos.length === 0
+        ? '<div class="lavado">Este alimento ya es seguro 🟢; normalmente no necesita reintroducción, pero puedes registrarlo igualmente.</div>'
+        : (grupos.length > 1
+          ? '<div class="lavado">⚠️ Este alimento tiene varios FODMAP (' + escapeHTML(grupos.join(", ")) +
+            '); una reacción puede deberse a cualquiera de ellos.</div>'
+          : '<div class="lavado">' + escapeHTML((GRUPOS_META[grupos[0]] || {}).nota || "") + '</div>'));
     var agendaTxt = '<div class="lavado">' + (agenda === "alterna"
       ? "Se prueba en <strong>días alternos</strong> (día 1, 3, 5…): los síntomas pueden tardar hasta 48 h."
       : "Se prueba en <strong>días seguidos</strong> con cantidades crecientes.") + '</div>';
@@ -2781,11 +2785,16 @@
         '<div class="btn-row"><button class="btn peligro" data-reiniciar="1">Reiniciar este alimento</button></div>';
     }
 
+    var cabecera = a.manual
+      ? '<div class="ficha"><div class="ficha-cab"><div class="emoji-grande">➕</div>' +
+        '<h2>' + escapeHTML(a.nombre) + '</h2>' +
+        '<p class="ficha-cat">Añadido a mano (no listado)</p></div></div>'
+      : fichaHTML(a).replace('<button class="volver" data-volver="1">‹ Volver a la búsqueda</button>', '');
     v.innerHTML =
       '<button class="volver" data-volver-f2="1">‹ Volver a la lista</button>' +
-      fichaHTML(a).replace('<button class="volver" data-volver="1">‹ Volver a la búsqueda</button>', '') +
+      cabecera +
       '<div class="ficha-cab"><h2>Reintroducción</h2>' +
-      '<p class="ficha-cat">Grupo: ' + escapeHTML(grupos.length ? grupos.join(" · ") : "ninguno (ya seguro)") + '</p></div>' +
+      '<p class="ficha-cat">Grupo: ' + escapeHTML(grupos.length ? grupos.join(" · ") : (a.manual ? "ninguno (agenda seguida)" : "ninguno (ya seguro)")) + '</p></div>' +
       cuerpo;
 
     wireDetalleReto(v, nombre, a, agenda);
@@ -3242,6 +3251,25 @@
     setManualReintro("Yaca", ["Fructanos"], "");
     assert(listaReintro().length === nBase + 1, "listaReintro = DATOS + no-listados");
     assert(listaReintro().filter(function (a){return a.nombre==="Yaca";}).length === 1, "Yaca está en listaReintro");
+    almacen._mem = null; store_clear_helper();
+
+    // ---- FASE 2: iniciar y RENDER del reto de un no-listado ----
+    almacen._mem = null; store_clear_helper();
+    setManualReintro("Yaca", ["Fructanos"], "");
+    iniciarPrueba("Yaca", "2026-06-01", agendaDeAlimento(alimentoReintro("Yaca")), 3);
+    var py = pruebaDe("Yaca");
+    assert(py && py.dias.length === 3, "se inicia el reto del no-listado con 3 dosis");
+    assert(py.dias[0].fecha === "2026-06-01" && py.dias[1].fecha === "2026-06-03", "agenda alterna aplicada al no-listado");
+    assert(estadoPrueba("Yaca") === "encurso", "el no-listado pasa a en curso");
+    // el render del reto NO debe romper para un no-listado (no tiene ficha clínica completa)
+    var okRenderManual = true;
+    try { estadoFase2.alimentoAbierto = "Yaca"; renderAlimentoReto("Yaca"); } catch (e) { okRenderManual = false; }
+    assert(okRenderManual, "renderAlimentoReto no rompe con un no-listado");
+    // y sigue funcionando para un listado normal
+    var okRenderListado = true;
+    try { renderAlimentoReto("Cebolla"); } catch (e) { okRenderListado = false; }
+    assert(okRenderListado, "renderAlimentoReto sigue OK con un listado");
+    estadoFase2.alimentoAbierto = null;
     almacen._mem = null; store_clear_helper();
 
     // exportar/importar v2
