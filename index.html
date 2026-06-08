@@ -181,7 +181,8 @@
      ============================================================ */
   var CATEGORIAS = ["Verduras","Frutas","Lácteos","Cereales y pan",
     "Proteínas","Legumbres","Frutos secos y semillas","Bebidas",
-    "Condimentos y otros","Dulces y snacks"];
+    "Condimentos y otros","Dulces y snacks",
+    "Aceites y grasas","Edulcorantes y endulzantes","Hierbas y especias"];
 
   /* ============================================================
      BASE DE DATOS (curada y trazable)
@@ -1833,6 +1834,12 @@
     });
     assert(catMalas.length === 0, "todas las categorías son válidas" +
       (catMalas.length ? " — " + catMalas.join(", ") : ""));
+
+    // ---- Categorías nuevas (ampliación 2026) ----
+    assert(CATEGORIAS.indexOf("Aceites y grasas") !== -1, "existe categoría Aceites y grasas");
+    assert(CATEGORIAS.indexOf("Edulcorantes y endulzantes") !== -1, "existe categoría Edulcorantes y endulzantes");
+    assert(CATEGORIAS.indexOf("Hierbas y especias") !== -1, "existe categoría Hierbas y especias");
+    assert(CATEGORIAS.length === 13, "hay 13 categorías tras la ampliación");
 
     // Búsquedas reales de extremo a extremo
     assert(buscar("cebolla", DATOS, null, false).length >= 1, "encuentra cebolla en DATOS");
