@@ -2652,7 +2652,7 @@
     if (estadoFase2.resumen) { renderResumen(); return; }
     if (estadoFase2.alimentoAbierto) { renderAlimentoReto(estadoFase2.alimentoAbierto); return; }
 
-    var base = ordenarParaReintro(DATOS);
+    var base = ordenarParaReintro(listaReintro());
     var resultados = base.filter(function (a) {
       if (estadoFase2.grupo && gruposDeAlimento(a).indexOf(estadoFase2.grupo) === -1) return false;
       if (!estadoFase2.texto) return true;
@@ -2669,9 +2669,11 @@
       var etiqueta = est === "hecho" ? "Completado" : est === "encurso" ? "En curso" : "";
       var cls = est === "hecho" ? "hecho" : est === "encurso" ? "encurso" : "";
       var grupos = gruposDeAlimento(a);
-      var badge = grupos.length ? grupos.join(" · ") : "ya seguro 🟢";
+      var badge = a.manual ? (grupos.length ? grupos.join(" · ") : "Otros") + " · a mano"
+                           : (grupos.length ? grupos.join(" · ") : "ya seguro 🟢");
+      var icono = a.manual ? "➕" : emojiNivel(a.nivel);
       return '<button class="reto-card" data-alim="' + escapeHTML(a.nombre) + '">' +
-        '<div class="reto-info"><span class="reto-grupo">' + emojiNivel(a.nivel) + ' ' + escapeHTML(a.nombre) + '</span>' +
+        '<div class="reto-info"><span class="reto-grupo">' + icono + ' ' + escapeHTML(a.nombre) + '</span>' +
         '<span class="reto-sub">' + escapeHTML(badge) + '</span></div>' +
         (etiqueta ? '<span class="estado ' + cls + '">' + etiqueta + '</span>' : '') + '</button>';
     }).join("");
@@ -3232,6 +3234,14 @@
     assert(manualReintroLista().length === 2, "manualReintroLista devuelve 2");
     borrarManualReintro("Rambután");
     assert(manualReintroLista().length === 1, "borrarManualReintro quita uno");
+    almacen._mem = null; store_clear_helper();
+
+    // ---- FASE 2: la lista de reintro incluye no-listados ----
+    almacen._mem = null; store_clear_helper();
+    var nBase = DATOS.length;
+    setManualReintro("Yaca", ["Fructanos"], "");
+    assert(listaReintro().length === nBase + 1, "listaReintro = DATOS + no-listados");
+    assert(listaReintro().filter(function (a){return a.nombre==="Yaca";}).length === 1, "Yaca está en listaReintro");
     almacen._mem = null; store_clear_helper();
 
     // exportar/importar v2
