@@ -2907,7 +2907,7 @@
 
     var parte1 = derivados.length ? derivados.map(function (n) {
       var p = pr[n]; var c = p.conclusion;
-      var al = DATOS.filter(function (x) { return x.nombre === n; })[0];
+      var al = alimentoReintro(n);
       var grupos = al ? gruposDeAlimento(al) : [];
       var cant = (c.estado === "limite" && c.dosisIndex != null && p.dias[c.dosisIndex]) ? (p.dias[c.dosisIndex].cantidad || p.dias[c.dosisIndex].etiqueta) : "";
       return '<div class="tol-card"><h3>' + escapeHTML(n) + '</h3>' +
@@ -3282,6 +3282,19 @@
     assert(rg["Fructanos"].some(function(f){return f.alimento==="Yaca";}), "Yaca cae en Fructanos");
     assert(rg["Otros"].some(function(f){return f.alimento==="Rambután";}), "sin grupo cae en Otros");
     almacen._mem = null; store_clear_helper();
+
+    // ---- FASE 3: un no-listado concluido llega a la tolerancia + render no rompe ----
+    almacen._mem = null; store_clear_helper(); almacenF3._mem = null;
+    try { localStorage.removeItem("sii_fodmap_fase3_v1"); } catch(e){}
+    setManualReintro("Yaca", ["Fructanos"], "");
+    iniciarPrueba("Yaca", "2026-06-01", "alterna", 3);
+    setConclusion("Yaca", "tolera", null);
+    assert(mapaToleranciaPorAlimento()["Yaca"] === "tolera", "el no-listado concluido entra en el mapa de tolerancia");
+    var okF3 = true;
+    try { renderFase3(); } catch (e) { okF3 = false; }
+    assert(okF3, "renderFase3 no rompe con un no-listado concluido");
+    almacen._mem = null; store_clear_helper(); almacenF3._mem = null;
+    try { localStorage.removeItem("sii_fodmap_fase3_v1"); } catch(e){}
 
     // exportar/importar v2
     almacen._mem = { version: 2, pruebas: {} }; localStorage.removeItem("sii_fodmap_fase2_v1");
