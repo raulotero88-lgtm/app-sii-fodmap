@@ -1125,6 +1125,13 @@
     almacen.guardar(data);
   }
 
+  function setFecha(nombre, idx, fecha) {
+    var data = almacen.cargar(); var p = data.pruebas[nombre];
+    if (!p || !p.dias[idx]) return;
+    p.dias[idx].fecha = fecha;
+    almacen.guardar(data);
+  }
+
   function guardarDosis(nombre, idx, valores) {
     var data = almacen.cargar(); var p = data.pruebas[nombre];
     if (!p || !p.dias[idx]) return;
@@ -1385,8 +1392,9 @@
         '" data-slider="' + clave + '" data-idx="' + i + '"></div>';
     }
     return '<div class="dosis' + (d.registrado ? " guardado" : "") + '">' +
-      '<h4>' + escapeHTML(d.etiqueta) + '</h4>' +
-      '<p class="fecha">📅 ' + escapeHTML(d.fecha || "sin fecha") + (d.registrado ? ' · ✅ guardado' : '') + '</p>' +
+      '<h4>' + escapeHTML(d.etiqueta) + (d.registrado ? ' · ✅ guardado' : '') + '</h4>' +
+      '<label>📅 Fecha de esta dosis' +
+      '<input type="date" class="alim" data-fecha="' + i + '" value="' + escapeHTML(d.fecha || "") + '"></label>' +
       '<label>Cantidad (la que te indique tu dietista)' +
       '<input type="text" class="alim" data-cant="' + i + '" value="' + escapeHTML(d.cantidad || "") +
       '" placeholder="ej. 1/2 tostada" autocomplete="off"></label>' +
@@ -1421,9 +1429,8 @@
 
     var cuerpo;
     if (!prueba) {
-      var hoy = aISO(new Date());
       cuerpo = avisoGrupo + agendaTxt +
-        '<label>Fecha de la primera dosis<input type="date" id="fechaSel" class="alim" value="' + hoy + '"></label>' +
+        '<p class="intro">Al empezar podrás poner la fecha de cada dosis (vienen con una sugerencia que puedes cambiar).</p>' +
         '<div class="btn-row"><button class="btn" data-empezar="1">Empezar registro</button></div>';
     } else {
       var dias = prueba.dias.map(function (d, i) { return bloqueDosisHTML(nombre, i, d); }).join("");
@@ -1463,9 +1470,7 @@
   function wireDetalleReto(v, nombre, a, agenda) {
     var emp = v.querySelector("[data-empezar]");
     if (emp) emp.addEventListener("click", function () {
-      var fch = document.getElementById("fechaSel");
-      var fecha = (fch && fch.value) ? fch.value : aISO(new Date());
-      iniciarPrueba(nombre, fecha, agenda, 3);
+      iniciarPrueba(nombre, aISO(new Date()), agenda, 3);
       pintarRuta(rutaActual);
     });
 
@@ -1483,6 +1488,12 @@
     Array.prototype.forEach.call(v.querySelectorAll("[data-cant]"), function (inp) {
       inp.addEventListener("input", function () {
         setCantidad(nombre, Number(inp.getAttribute("data-cant")), inp.value); flashAutosave();
+      });
+    });
+
+    Array.prototype.forEach.call(v.querySelectorAll("[data-fecha]"), function (inp) {
+      inp.addEventListener("change", function () {
+        setFecha(nombre, Number(inp.getAttribute("data-fecha")), inp.value); flashAutosave();
       });
     });
 
@@ -1774,6 +1785,9 @@
     assert(estadoPrueba("Cebolla") === "encurso", "prueba iniciada sin conclusión -> encurso");
     setCantidad("Cebolla", 0, "1 cucharadita");
     assert(pruebaDe("Cebolla").dias[0].cantidad === "1 cucharadita", "setCantidad guarda la cantidad");
+    setFecha("Cebolla", 2, "2026-07-10");
+    assert(pruebaDe("Cebolla").dias[2].fecha === "2026-07-10", "setFecha cambia la fecha de una dosis");
+    assert(pruebaDe("Cebolla").dias[2].registrado === false, "setFecha no marca la dosis como registrada");
     guardarDosis("Cebolla", 0, { dolor: 2, hinchazon: 1, gases: 0, notas: "ok" });
     assert(pruebaDe("Cebolla").dias[0].registrado === true, "guardarDosis marca registrado");
     assert(pruebaDe("Cebolla").dias[0].dolor === 2, "guardarDosis guarda el valor");
