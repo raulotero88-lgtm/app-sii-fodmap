@@ -2329,10 +2329,9 @@
   var STORAGE_KEY = "sii_fodmap_fase2_v1";
 
   function migrarFase2(p) {
-    // v1 (retos por grupo) -> v2 (pruebas por alimento). Idempotente.
-    if (!p || typeof p !== "object") return { version: 2, pruebas: {} };
-    if (p.version === 2 && p.pruebas) return p;
-    var out = { version: 2, pruebas: {} };
+    if (!p || typeof p !== "object") return { version: 2, pruebas: {}, manualReintro: {} };
+    if (p.version === 2 && p.pruebas) { if (!p.manualReintro) p.manualReintro = {}; return p; }
+    var out = { version: 2, pruebas: {}, manualReintro: {} };
     var retos = p.retos && typeof p.retos === "object" ? p.retos : {};
     Object.keys(retos).forEach(function (gid) {
       var r = retos[gid];
@@ -2348,10 +2347,8 @@
         };
       });
       out.pruebas[r.alimentoElegido] = {
-        alimento: r.alimentoElegido,
-        agenda: r.agenda || "seguida",
-        dias: dias,
-        conclusion: { estado: "sin", dosisIndex: null }
+        alimento: r.alimentoElegido, agenda: r.agenda || "seguida",
+        dias: dias, conclusion: { estado: "sin", dosisIndex: null }
       };
     });
     return out;
@@ -2365,7 +2362,7 @@
     },
     cargar: function () {
       if (this._mem) return this._mem;
-      var base = { version: 2, pruebas: {} };
+      var base = { version: 2, pruebas: {}, manualReintro: {} };
       try {
         var raw = localStorage.getItem(STORAGE_KEY);
         if (raw) {
@@ -2464,6 +2461,33 @@
     var data = almacen.cargar();
     if (data.pruebas[nombre]) { delete data.pruebas[nombre]; almacen.guardar(data); }
   }
+
+  function manualReintroLista() {
+    var m = almacen.cargar().manualReintro || {};
+    return Object.keys(m).map(function (k) { return { nombre: k, fodmap: m[k].fodmap || [], nota: m[k].nota || "" }; });
+  }
+  function setManualReintro(nombre, fodmap, nota) {
+    var d = almacen.cargar();
+    if (!d.manualReintro) d.manualReintro = {};
+    d.manualReintro[nombre] = { fodmap: Array.isArray(fodmap) ? fodmap.slice() : [], nota: nota || "" };
+    almacen.guardar(d);
+  }
+  function borrarManualReintro(nombre) {
+    var d = almacen.cargar(); if (d.manualReintro && d.manualReintro[nombre]) { delete d.manualReintro[nombre]; almacen.guardar(d); }
+  }
+  // Resolvedor: alimento de DATOS, o sintético desde manualReintro.
+  function alimentoReintro(nombre) {
+    var a = DATOS.filter(function (x) { return x.nombre === nombre; })[0];
+    if (a) return a;
+    var m = (almacen.cargar().manualReintro || {})[nombre];
+    if (!m) return null;
+    return { nombre: nombre, fodmap: (m.fodmap || []).slice(), categoria: "No listado", nivel: null, manual: true };
+  }
+  // Alimentos no-listados como objetos (para mezclarlos en la lista de reintro).
+  function manualReintroComoAlimentos() {
+    return manualReintroLista().map(function (m) { return alimentoReintro(m.nombre); });
+  }
+  function listaReintro() { return DATOS.concat(manualReintroComoAlimentos()); }
 
   /* ============================================================
      FASE 3 · DATOS Y LÓGICA (personalización / tolerancias)
@@ -3185,6 +3209,30 @@
     assert(mig.pruebas["Miel"].dias[0].registrado === true, "migración: guardado -> registrado");
     assert(mig.pruebas["Miel"].dias[0].dolor === 3, "migración conserva los síntomas");
     assert(mig.pruebas["Miel"].conclusion.estado === "sin", "migración: conclusión por defecto 'sin'");
+
+    // ---- FASE 2: alimentos no listados (manualReintro) ----
+    almacen._mem = null; store_clear_helper();
+    // migración inicializa manualReintro
+    var dmr = almacen.cargar();
+    assert(dmr.manualReintro && typeof dmr.manualReintro === "object", "cargar da manualReintro {}");
+    // alta de un no-listado y resolvedor
+    setManualReintro("Yaca", ["Fructanos"], "fruta tropical");
+    var res = alimentoReintro("Yaca");
+    assert(res && res.nombre === "Yaca" && res.manual === true, "alimentoReintro resuelve un no-listado");
+    assert(res.fodmap.join(",") === "Fructanos" && res.nivel === null, "no-listado: fodmap del grupo y nivel null");
+    assert(agendaDeAlimento(res) === "alterna", "Fructanos -> agenda alterna en no-listado");
+    // un listado se resuelve desde DATOS
+    var res2 = alimentoReintro("Cebolla");
+    assert(res2 && !res2.manual && res2.nivel === "rojo", "alimentoReintro resuelve un listado desde DATOS");
+    // 'no lo sé' -> sin grupo, agenda seguida
+    setManualReintro("Rambután", [], "");
+    var res3 = alimentoReintro("Rambután");
+    assert(res3.fodmap.length === 0 && agendaDeAlimento(res3) === "seguida", "no lo sé -> sin grupo, seguida");
+    // lista y borrado
+    assert(manualReintroLista().length === 2, "manualReintroLista devuelve 2");
+    borrarManualReintro("Rambután");
+    assert(manualReintroLista().length === 1, "borrarManualReintro quita uno");
+    almacen._mem = null; store_clear_helper();
 
     // exportar/importar v2
     almacen._mem = { version: 2, pruebas: {} }; localStorage.removeItem("sii_fodmap_fase2_v1");
