@@ -2462,6 +2462,8 @@
     if (data.pruebas[nombre]) { delete data.pruebas[nombre]; almacen.guardar(data); }
   }
 
+  // manualReintro: alimentos NO listados que se quieren reintroducir (almacén Fase 2).
+  // OJO: es distinto de `manuales`/`setManual` de Fase 3, que son tolerancias declaradas a mano.
   function manualReintroLista() {
     var m = almacen.cargar().manualReintro || {};
     return Object.keys(m).map(function (k) { return { nombre: k, fodmap: m[k].fodmap || [], nota: m[k].nota || "" }; });
@@ -2472,10 +2474,17 @@
     d.manualReintro[nombre] = { fodmap: Array.isArray(fodmap) ? fodmap.slice() : [], nota: nota || "" };
     almacen.guardar(d);
   }
+  // Borra el no-listado y también su prueba, para no dejar una prueba huérfana
+  // (sin la entrada, el resolvedor devolvería null y la prueba quedaría "sin grupo").
   function borrarManualReintro(nombre) {
-    var d = almacen.cargar(); if (d.manualReintro && d.manualReintro[nombre]) { delete d.manualReintro[nombre]; almacen.guardar(d); }
+    var d = almacen.cargar(); var cambiado = false;
+    if (d.manualReintro && d.manualReintro[nombre]) { delete d.manualReintro[nombre]; cambiado = true; }
+    if (d.pruebas && d.pruebas[nombre]) { delete d.pruebas[nombre]; cambiado = true; }
+    if (cambiado) almacen.guardar(d);
   }
   // Resolvedor: alimento de DATOS, o sintético desde manualReintro.
+  // Precedencia intencional: si un día el alimento entra en el catálogo, la ficha curada
+  // de DATOS manda sobre el grupo que se eligió a mano (mismo criterio que el resto de la app, por nombre).
   function alimentoReintro(nombre) {
     var a = DATOS.filter(function (x) { return x.nombre === nombre; })[0];
     if (a) return a;
@@ -3290,6 +3299,11 @@
     assert(manualReintroLista().length === 2, "manualReintroLista devuelve 2");
     borrarManualReintro("Rambután");
     assert(manualReintroLista().length === 1, "borrarManualReintro quita uno");
+    // borrar también elimina la prueba (no deja prueba huérfana)
+    iniciarPrueba("Yaca", "2026-06-01", "alterna", 3);
+    assert(pruebaDe("Yaca") != null, "Yaca tiene prueba antes de borrar");
+    borrarManualReintro("Yaca");
+    assert(manualReintroLista().length === 0 && pruebaDe("Yaca") == null, "borrarManualReintro borra entrada y prueba");
     almacen._mem = null; store_clear_helper();
 
     // ---- FASE 2: la lista de reintro incluye no-listados ----
