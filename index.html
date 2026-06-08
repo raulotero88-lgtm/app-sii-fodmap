@@ -2565,7 +2565,7 @@
     var data = almacen.cargar();
     Object.keys(data.pruebas || {}).forEach(function (nombre) {
       var p = data.pruebas[nombre];
-      var al = datos.filter(function (x) { return x.nombre === nombre; })[0];
+      var al = alimentoReintro(nombre);
       var grupos = al ? gruposDeAlimento(al) : [];
       if (!grupos.length) grupos = ["Otros"];
       var fila = { alimento: nombre,
@@ -3270,6 +3270,17 @@
     try { renderAlimentoReto("Cebolla"); } catch (e) { okRenderListado = false; }
     assert(okRenderListado, "renderAlimentoReto sigue OK con un listado");
     estadoFase2.alimentoAbierto = null;
+    almacen._mem = null; store_clear_helper();
+
+    // ---- FASE 2: el resumen agrupa los no-listados por su grupo / Otros ----
+    almacen._mem = null; store_clear_helper();
+    setManualReintro("Yaca", ["Fructanos"], "");
+    iniciarPrueba("Yaca", "2026-06-01", "alterna", 3);
+    setManualReintro("Rambután", [], "");
+    iniciarPrueba("Rambután", "2026-06-01", "seguida", 3);
+    var rg = resumenPorGrupo(DATOS);
+    assert(rg["Fructanos"].some(function(f){return f.alimento==="Yaca";}), "Yaca cae en Fructanos");
+    assert(rg["Otros"].some(function(f){return f.alimento==="Rambután";}), "sin grupo cae en Otros");
     almacen._mem = null; store_clear_helper();
 
     // exportar/importar v2
