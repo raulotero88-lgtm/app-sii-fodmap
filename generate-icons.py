@@ -1,34 +1,28 @@
 """
-Script para generar iconos PWA para la app SII/FODMAP.
-Genera icon-192.png e icon-512.png en la carpeta icons/.
-Requiere: Python 3 + Pillow (pip install Pillow)
+Genera los iconos PWA (icon-192.png, icon-512.png) a partir del logo de la app.
+Fuente: 'Logo app.jpg' (1024x1024). Requiere: Python 3 + Pillow (pip install Pillow).
+Uso: python generate-icons.py
 """
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image
 import os
 
+SOURCE = 'Logo app.jpg'
 os.makedirs('icons', exist_ok=True)
 
+src = Image.open(SOURCE).convert('RGBA')
+
+# Asegura un cuadrado perfecto (recorta centrado si hiciera falta).
+w, h = src.size
+if w != h:
+    s = min(w, h)
+    left = (w - s) // 2
+    top = (h - s) // 2
+    src = src.crop((left, top, left + s, top + s))
+
 for size in [192, 512]:
-    img = Image.new('RGB', (size, size), '#2ecc71')
-    draw = ImageDraw.Draw(img)
-    text = 'SII'
-    # Try to use a bold font, fall back to default
-    try:
-        font_size = size // 3
-        font = ImageFont.truetype('arialbd.ttf', font_size)
-    except:
-        try:
-            font_size = size // 3
-            font = ImageFont.truetype('arial.ttf', font_size)
-        except:
-            font = ImageFont.load_default()
-    bbox = draw.textbbox((0, 0), text, font=font)
-    text_w = bbox[2] - bbox[0]
-    text_h = bbox[3] - bbox[1]
-    x = (size - text_w) // 2
-    y = (size - text_h) // 2
-    draw.text((x, y), text, fill='white', font=font)
-    img.save(f'icons/icon-{size}.png')
-    print(f'Generated icons/icon-{size}.png ({size}x{size})')
+    img = src.resize((size, size), Image.LANCZOS)
+    out = f'icons/icon-{size}.png'
+    img.save(out, 'PNG')
+    print(f'Generated {out} ({size}x{size})')
 
 print('Done.')
