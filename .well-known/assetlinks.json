@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.puedocomerlo.twa",
+      "sha256_cert_fingerprints": [
+        "D0:F1:2D:75:DF:DD:91:B8:0A:74:7E:3B:77:DD:4F:FA:BA:06:D5:97:5E:12:02:16:00:48:96:8A:AA:7C:4E:64"
+      ]
+    }
+  }
+]
