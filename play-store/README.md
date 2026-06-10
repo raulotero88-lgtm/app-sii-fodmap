@@ -8,10 +8,7 @@ Material gráfico y textos de la ficha de Play Store de **¿Puedo comerlo? FODMA
 | Archivo | Tamaño | Dónde va en Play Console |
 |---|---|---|
 | `grafico-funciones-1024x500.png` | 1024×500 | Ficha principal de la tienda → Recursos gráficos → **Gráfico de funciones** |
-| `captura-1-buscador.png` | 1236×2196 | Ficha principal → Recursos gráficos → **Capturas de teléfono** |
-| `captura-2-ficha-alimento.png` | 1236×2196 | (ídem) |
-| `captura-3-reintroduccion.png` | 1236×2196 | (ídem) |
-| `captura-4-personalizacion.png` | 1236×2196 | (ídem, opcional) |
+| `phone/` (4 imágenes) | 1236×2196 | Ficha principal → Recursos gráficos → **Capturas de teléfono** |
 | `tablet-7/` (4 imágenes) | 1280×2048 | Ficha principal → Recursos gráficos → **Capturas de tablet de 7"** |
 | `tablet-10/` (4 imágenes) | 1600×2560 | Ficha principal → Recursos gráficos → **Capturas de tablet de 10"** |
 
