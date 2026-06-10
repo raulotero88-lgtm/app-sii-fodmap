@@ -29,6 +29,7 @@ Documento para continuar el proceso de publicación desde cualquier PC o sesión
 - Fase 3: cuenta Google Play creada (pendiente verificación de identidad).
 - Fase 4: `.aab` construido (PWABuilder) + `assetlinks.json` publicado y validado por Google.
 - **5.1**: app creada en Play Console — nombre `¿Puedo comerlo? FODMAP/SII`, package `com.puedocomerlo.twa`, es-ES, App, Gratis.
+- **5.2** (2026-06-10): clave de firma de Google (Play App Signing) localizada en página `keymanagement`; 2ª huella añadida al `assetlinks.json`, desplegada y verificada en producción. Edición de prueba interna V.1.0 publicada + lista de testers creada (`raulotero88@gmail.com`). **App instalada desde prueba interna y VALIDADA en móvil real: abre a pantalla completa sin barra de navegador** → verificación TWA OK.
 
 ## Próximos pasos ⏭️
 1. **(Esperando)** verificación de identidad de la cuenta Play.
