@@ -8,6 +8,8 @@ Documento para continuar el proceso de publicación desde cualquier PC o sesión
 - **Cuenta Play:** personal, a nombre del titular. Monetización: **gratis + donación** (sin pagos in-app).
 - **Package name (identidad PERMANENTE de la app):** `com.puedocomerlo.twa`
 - **Huella clave de subida (SHA-256):** `D0:F1:2D:75:DF:DD:91:B8:0A:74:7E:3B:77:DD:4F:FA:BA:06:D5:97:5E:12:02:16:00:48:96:8A:AA:7C:4E:64`
+- **Huella clave de firma de Google / Play App Signing (SHA-256):** `6B:C4:3E:42:02:45:01:5D:E2:56:AB:00:33:93:4B:D2:B6:EB:55:A8:23:22:AC:3D:A3:CC:6A:DC:E3:06:91:39`
+  (se ve en Play Console → app → página `keymanagement` = "Firma de aplicaciones". En estado *Borrador* NO aparece enlazada en el menú lateral; hay que entrar por URL directa. Ya añadida como 2ª huella al `assetlinks.json`.)
 
 ## Cómo está montado
 - **Código:** este repositorio de GitHub (`raulotero88-lgtm/app-sii-fodmap`).
@@ -26,16 +28,18 @@ Documento para continuar el proceso de publicación desde cualquier PC o sesión
 - Fase 2: dominio + HTTPS + www en Cloudflare.
 - Fase 3: cuenta Google Play creada (pendiente verificación de identidad).
 - Fase 4: `.aab` construido (PWABuilder) + `assetlinks.json` publicado y validado por Google.
+- **5.1**: app creada en Play Console — nombre `¿Puedo comerlo? FODMAP/SII`, package `com.puedocomerlo.twa`, es-ES, App, Gratis.
 
 ## Próximos pasos ⏭️
 1. **(Esperando)** verificación de identidad de la cuenta Play.
-2. **5.1** Crear la app en Play Console: nombre `¿Puedo comerlo? FODMAP/SII`, es-ES, App, Gratis.
-3. **5.2** Subir el `.aab` a **pruebas internas** → obtener la **clave de firma de Google** (Play App Signing)
-   y **añadir su huella SHA-256** al `.well-known/assetlinks.json` (2ª huella). Probar en un móvil real.
-4. **5.3** Rellenar fichas obligatorias: ficha de tienda, capturas, gráfico 1024×500, clasificación de edad,
+2. **5.2** ~~Subir el `.aab` a **pruebas internas** → obtener la **clave de firma de Google** (Play App Signing)
+   y **añadir su huella SHA-256** al `.well-known/assetlinks.json`~~ ✅ HECHO 2026-06-10 (2ª huella ya en el JSON).
+   **FALTA:** desplegar el `assetlinks.json` actualizado a producción (`master` → Cloudflare) y publicar la
+   edición de prueba interna (ahora en *Borrador*) + crear la lista de testers. Luego probar en un móvil real.
+3. **5.3** Rellenar fichas obligatorias: ficha de tienda, capturas, gráfico 1024×500, clasificación de edad,
    seguridad de datos (declarar "no se recogen datos"), declaración de app de salud, política de privacidad
    (URL: https://puedocomerlo.com/privacidad).
-5. **6** Prueba cerrada con **12 testers durante 14 días** (requisito de cuentas personales nuevas) → producción.
+4. **6** Prueba cerrada con **12 testers durante 14 días** (requisito de cuentas personales nuevas) → producción.
 
 ## Cómo retomar desde otro PC
 1. `git clone https://github.com/raulotero88-lgtm/app-sii-fodmap.git` → quedas en la rama `master` (la buena).
