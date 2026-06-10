@@ -12,9 +12,12 @@ Material gráfico y textos de la ficha de Play Store de **¿Puedo comerlo? FODMA
 | `captura-2-ficha-alimento.png` | 1236×2196 | (ídem) |
 | `captura-3-reintroduccion.png` | 1236×2196 | (ídem) |
 | `captura-4-personalizacion.png` | 1236×2196 | (ídem, opcional) |
+| `tablet-7/` (4 imágenes) | 1280×2048 | Ficha principal → Recursos gráficos → **Capturas de tablet de 7"** |
+| `tablet-10/` (4 imágenes) | 1600×2560 | Ficha principal → Recursos gráficos → **Capturas de tablet de 10"** |
 
 > Las capturas son de la app real (puedocomerlo.com) a resolución de móvil (9:16).
-> El gráfico de funciones se regenera con `make_feature.py` (Pillow) a partir de `Logo app.jpg`.
+> Las de tablet son esas mismas capturas centradas sobre el fondo verde de marca
+> (`make_tablet.py`, Pillow). El gráfico de funciones se regenera con `make_feature.py`.
 
 ## Textos de la ficha
 
