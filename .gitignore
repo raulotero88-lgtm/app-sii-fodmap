@@ -1,3 +1,6 @@
 Thumbs.db
 .DS_Store
 desktop.ini
+
+# Paquete de Google Play: contiene el keystore de firma, no subir nunca
+SII FODMAP - Google Play package/
